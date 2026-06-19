@@ -39,12 +39,12 @@ var _battle_id := 0  # bumped each New Battle; guards stale timer coroutines
 var _banner: Label
 var _enemy_header: Label
 var _enemy_hp: ProgressBar
-var _enemy_row: HFlowContainer
+var _enemy_being: VBoxContainer
 var _telegraph: Label
 var _status: Label
 var _player_header: Label
 var _player_hp: ProgressBar
-var _player_row: HFlowContainer
+var _player_being: VBoxContainer
 var _player_items: Label
 
 
@@ -92,8 +92,8 @@ func _build_ui() -> void:
 	col.add_child(_enemy_header)
 	_enemy_hp = _hp_bar(Color(0.85, 0.30, 0.30))
 	col.add_child(_enemy_hp)
-	_enemy_row = _word_row()
-	col.add_child(_panel(_enemy_row))
+	_enemy_being = _being()
+	col.add_child(_panel(_enemy_being))
 	_telegraph = _label("", 15)
 	_telegraph.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_telegraph)
@@ -117,8 +117,8 @@ func _build_ui() -> void:
 	col.add_child(_player_header)
 	_player_hp = _hp_bar(Color(0.35, 0.70, 0.95))
 	col.add_child(_player_hp)
-	_player_row = _word_row()
-	col.add_child(_panel(_player_row))
+	_player_being = _being()
+	col.add_child(_panel(_player_being))
 	_player_items = _label("", 15)
 	_player_items.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_player_items)
@@ -151,11 +151,10 @@ func _hp_bar(color: Color) -> ProgressBar:
 	return bar
 
 
-func _word_row() -> HFlowContainer:
-	var row := HFlowContainer.new()
-	row.add_theme_constant_override("h_separation", 8)
-	row.add_theme_constant_override("v_separation", 6)
-	return row
+func _being() -> VBoxContainer:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+	return box
 
 
 func _panel(child: Control) -> PanelContainer:
@@ -198,10 +197,8 @@ func _refresh() -> void:
 	_player_header.text = "YOU — %s    HP %d/%d    wards: %d" % [
 		_player.name, _player.hp, _player.max_hp, _player.wards]
 
-	_render_words(_enemy_row, _enemy.tokens,
-		"target" if _state == ST_TARGET else "none")
-	_render_words(_player_row, _player.tokens,
-		"items" if _state == ST_CHOOSE else "none")
+	_render_being(_enemy_being, _enemy, "target" if _state == ST_TARGET else "none")
+	_render_being(_player_being, _player, "items" if _state == ST_CHOOSE else "none")
 
 	_banner.text = _banner_text()
 	_banner.add_theme_color_override("font_color", _banner_color())
@@ -226,40 +223,82 @@ func _banner_color() -> Color:
 		_: return COLOR_NEUTRAL
 
 
-## Render a sentence. mode: "items" (player item buttons),
-## "target" (enemy word buttons), or "none" (all labels).
-func _render_words(row: HFlowContainer, tokens: Array, mode: String) -> void:
-	for c in row.get_children():
+## Render a character as a small sideways tree: the owner is the body (top),
+## each item branches below it as a limb carrying its adjectives. This is the
+## dependency structure spaCy found at build time, shown directly.
+## mode: "items" (player item buttons), "target" (enemy word buttons), "none".
+func _render_being(box: VBoxContainer, fighter: Dictionary, mode: String) -> void:
+	for c in box.get_children():
 		c.queue_free()
-	for i in range(tokens.size()):
-		var token: Dictionary = tokens[i]
-		var color := _sentiment_color(token)
-		var kind: String = token.get("kind", "")
-		var make_button := false
-		var cb := Callable()
-		if mode == "items" and kind == GameLogic.KIND_ITEM:
-			make_button = true
-			cb = Callable(self, "_on_player_item_pressed").bind(int(token.get("item_index", -1)))
-		elif mode == "target" and kind in GameLogic.EDITABLE_KINDS:
-			make_button = true
-			cb = Callable(self, "_on_enemy_word_pressed").bind(i)
+	var tokens: Array = fighter.tokens
 
-		if make_button:
-			var btn := Button.new()
-			btn.text = token.get("text", "")
-			btn.add_theme_font_size_override("font_size", 22)
-			btn.add_theme_color_override("font_color", color)
-			btn.add_theme_color_override("font_hover_color", Color.WHITE)
-			if mode == "items":
-				btn.tooltip_text = _item_effect_text(tokens, int(token.get("item_index", -1)))
-			btn.pressed.connect(cb)
-			row.add_child(btn)
-		else:
-			var lbl := Label.new()
-			lbl.text = token.get("text", "")
-			lbl.add_theme_font_size_override("font_size", 22)
-			lbl.add_theme_color_override("font_color", color)
-			row.add_child(lbl)
+	# Owner line: the owner word (big), preceded by its adjectives.
+	var owner_line := _branch_row()
+	var owner_idx := -1
+	for i in range(tokens.size()):
+		var t: Dictionary = tokens[i]
+		if t.get("kind", "") == GameLogic.KIND_ADJ and t.get("attaches", "") == "owner":
+			owner_line.add_child(_token_control(t, i, tokens, mode, 22))
+		elif t.get("kind", "") == GameLogic.KIND_CREATURE and t.get("is_owner", false):
+			owner_idx = i
+	if owner_idx >= 0:
+		owner_line.add_child(_token_control(tokens[owner_idx], owner_idx, tokens, mode, 30))
+	box.add_child(owner_line)
+
+	# One branch per item, in cycle order: connector + adjectives + item noun.
+	for item_index in fighter.item_order:
+		var line := _branch_row()
+		line.add_child(_connector("   ┗━"))
+		var noun_idx := -1
+		for i in range(tokens.size()):
+			var t: Dictionary = tokens[i]
+			if t.get("kind", "") == GameLogic.KIND_ADJ and t.get("attaches", "") == "item:%d" % int(item_index):
+				line.add_child(_token_control(t, i, tokens, mode, 22))
+			elif t.get("kind", "") == GameLogic.KIND_ITEM and int(t.get("item_index", -1)) == int(item_index):
+				noun_idx = i
+		if noun_idx >= 0:
+			line.add_child(_token_control(tokens[noun_idx], noun_idx, tokens, mode, 22))
+		box.add_child(line)
+
+
+func _branch_row() -> HBoxContainer:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	return row
+
+
+func _connector(glyph: String) -> Label:
+	var l := _label(glyph, 20)
+	l.add_theme_color_override("font_color", COLOR_FIXED)
+	return l
+
+
+## One word as a Button (when interactive) or Label, colored by sentiment.
+func _token_control(token: Dictionary, idx: int, tokens: Array, mode: String, font_size: int) -> Control:
+	var color := _sentiment_color(token)
+	var kind: String = token.get("kind", "")
+	var cb := Callable()
+	if mode == "items" and kind == GameLogic.KIND_ITEM:
+		cb = Callable(self, "_on_player_item_pressed").bind(int(token.get("item_index", -1)))
+	elif mode == "target" and kind in GameLogic.EDITABLE_KINDS:
+		cb = Callable(self, "_on_enemy_word_pressed").bind(idx)
+
+	if not cb.is_null():
+		var btn := Button.new()
+		btn.text = token.get("text", "")
+		btn.add_theme_font_size_override("font_size", font_size)
+		btn.add_theme_color_override("font_color", color)
+		btn.add_theme_color_override("font_hover_color", Color.WHITE)
+		if mode == "items":
+			btn.tooltip_text = _item_effect_text(tokens, int(token.get("item_index", -1)))
+		btn.pressed.connect(cb)
+		return btn
+
+	var lbl := Label.new()
+	lbl.text = token.get("text", "")
+	lbl.add_theme_font_size_override("font_size", font_size)
+	lbl.add_theme_color_override("font_color", color)
+	return lbl
 
 
 func _sentiment_color(token: Dictionary) -> Color:

@@ -69,11 +69,16 @@ func _initialize() -> void:
 	_check(r_block.scrambled == 0 and r_block.blocked == r_block.amount,
 		"wards fully block a word attack")
 
-	# --- HP defense heals ---
-	player.wards = 0
-	player.hp = player.max_hp - 5
-	var r_heal := GameLogic.apply_item(player, enemy, 1, pools, rng)  # shield
-	_check(r_heal.type == GameLogic.HP_DEFENSE and player.hp > player.max_hp - 5,
+	# --- HP defense heals (find a character that actually has one) ---
+	var healer := GameLogic.make_fighter(_find(characters, "Ogre"))
+	var heal_idx := -1
+	for t in healer.tokens:
+		if t.get("kind", "") == GameLogic.KIND_ITEM and t.get("item_type", "") == GameLogic.HP_DEFENSE:
+			heal_idx = int(t.get("item_index", -1))
+	_check(heal_idx >= 0, "Ogre has an HP-defense item")
+	healer.hp = healer.max_hp - 5
+	var r_heal := GameLogic.apply_item(healer, healer, heal_idx, pools, rng)
+	_check(r_heal.type == GameLogic.HP_DEFENSE and healer.hp > healer.max_hp - 5,
 		"HP defense heals the user")
 
 	# --- pacify check responds to sentiment ---
