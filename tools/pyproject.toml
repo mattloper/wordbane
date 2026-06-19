@@ -1,0 +1,28 @@
+[project]
+name = "wordplay-tools"
+version = "0.1.0"
+description = "Build-time NLP tooling for the Wordplay Godot game (word bank + sentence tagging)."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+# Optional NLP enrichment. The generator works fully without these; install with
+#   uv pip install -e ".[nlp]"
+# and then download data once:
+#   uv run python -m nltk.downloader punkt averaged_perceptron_tagger wordnet sentiwordnet omw-1.4
+nlp = ["nltk>=3.8"]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+wordplay-generate = "wordplay_tools.generate:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["wordplay_tools"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

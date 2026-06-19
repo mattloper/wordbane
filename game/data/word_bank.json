@@ -1,0 +1,323 @@
+{
+  "schema_version": 1,
+  "sentiments": [
+    "positive",
+    "negative",
+    "neutral"
+  ],
+  "parts_of_speech": [
+    "ADJ",
+    "NOUN"
+  ],
+  "word_pools": {
+    "ADJ": {
+      "positive": [
+        "cozy",
+        "gentle",
+        "fuzzy",
+        "kind",
+        "cheerful",
+        "warm",
+        "soft",
+        "friendly",
+        "radiant",
+        "playful",
+        "sweet",
+        "calm",
+        "lovely",
+        "graceful",
+        "bright",
+        "tender",
+        "merry",
+        "snug",
+        "darling",
+        "serene"
+      ],
+      "negative": [
+        "fierce",
+        "sharp",
+        "cruel",
+        "jagged",
+        "venomous",
+        "savage",
+        "wicked",
+        "menacing",
+        "brutal",
+        "ruthless",
+        "spiky",
+        "vicious",
+        "grim",
+        "monstrous",
+        "dreadful",
+        "hostile",
+        "rabid",
+        "sinister",
+        "deadly",
+        "ferocious"
+      ],
+      "neutral": [
+        "tall",
+        "round",
+        "wooden",
+        "ancient",
+        "distant",
+        "quiet",
+        "hollow",
+        "damp",
+        "grey",
+        "wide",
+        "narrow",
+        "plain",
+        "ordinary",
+        "still",
+        "heavy",
+        "pale",
+        "smooth",
+        "vast",
+        "faint",
+        "dim"
+      ]
+    },
+    "NOUN": {
+      "positive": [
+        "kitten",
+        "pillow",
+        "garden",
+        "friend",
+        "blanket",
+        "puppy",
+        "bakery",
+        "meadow",
+        "teacup",
+        "songbird",
+        "cupcake",
+        "hearth",
+        "lantern",
+        "bouquet",
+        "harp",
+        "cottage",
+        "rainbow",
+        "honey",
+        "quilt",
+        "daisy"
+      ],
+      "negative": [
+        "dragon",
+        "knife",
+        "fang",
+        "serpent",
+        "blade",
+        "wolf",
+        "spear",
+        "claw",
+        "demon",
+        "scorpion",
+        "axe",
+        "viper",
+        "skull",
+        "grave",
+        "shackle",
+        "ogre",
+        "dagger",
+        "wraith",
+        "hornet",
+        "thorn"
+      ],
+      "neutral": [
+        "rock",
+        "table",
+        "river",
+        "tower",
+        "cloud",
+        "road",
+        "stone",
+        "barrel",
+        "window",
+        "fence",
+        "wheel",
+        "lamp",
+        "crate",
+        "hill",
+        "bucket",
+        "post",
+        "shelf",
+        "gate",
+        "bench",
+        "wall"
+      ]
+    }
+  },
+  "characters": [
+    {
+      "name": "Dragon",
+      "role": "enemy",
+      "tokens": [
+        {
+          "text": "The",
+          "editable": false
+        },
+        {
+          "text": "fierce",
+          "editable": true,
+          "pos": "ADJ",
+          "sentiment": "negative"
+        },
+        {
+          "text": "dragon",
+          "editable": true,
+          "pos": "NOUN",
+          "sentiment": "negative"
+        },
+        {
+          "text": "clutches",
+          "editable": false
+        },
+        {
+          "text": "a",
+          "editable": false
+        },
+        {
+          "text": "sharp",
+          "editable": true,
+          "pos": "ADJ",
+          "sentiment": "negative"
+        },
+        {
+          "text": "knife",
+          "editable": true,
+          "pos": "NOUN",
+          "sentiment": "negative"
+        }
+      ]
+    },
+    {
+      "name": "Cat",
+      "role": "player",
+      "tokens": [
+        {
+          "text": "The",
+          "editable": false
+        },
+        {
+          "text": "cozy",
+          "editable": true,
+          "pos": "ADJ",
+          "sentiment": "positive"
+        },
+        {
+          "text": "kitten",
+          "editable": true,
+          "pos": "NOUN",
+          "sentiment": "positive"
+        },
+        {
+          "text": "hugs",
+          "editable": false
+        },
+        {
+          "text": "a",
+          "editable": false
+        },
+        {
+          "text": "fuzzy",
+          "editable": true,
+          "pos": "ADJ",
+          "sentiment": "positive"
+        },
+        {
+          "text": "pillow",
+          "editable": true,
+          "pos": "NOUN",
+          "sentiment": "positive"
+        }
+      ]
+    },
+    {
+      "name": "Ogre",
+      "role": "enemy",
+      "tokens": [
+        {
+          "text": "A",
+          "editable": false
+        },
+        {
+          "text": "savage",
+          "editable": true,
+          "pos": "ADJ",
+          "sentiment": "negative"
+        },
+        {
+          "text": "ogre",
+          "editable": true,
+          "pos": "NOUN",
+          "sentiment": "negative"
+        },
+        {
+          "text": "swings",
+          "editable": false
+        },
+        {
+          "text": "a",
+          "editable": false
+        },
+        {
+          "text": "brutal",
+          "editable": true,
+          "pos": "ADJ",
+          "sentiment": "negative"
+        },
+        {
+          "text": "axe",
+          "editable": true,
+          "pos": "NOUN",
+          "sentiment": "negative"
+        }
+      ]
+    },
+    {
+      "name": "Bunny",
+      "role": "player",
+      "tokens": [
+        {
+          "text": "A",
+          "editable": false
+        },
+        {
+          "text": "gentle",
+          "editable": true,
+          "pos": "ADJ",
+          "sentiment": "positive"
+        },
+        {
+          "text": "puppy",
+          "editable": true,
+          "pos": "NOUN",
+          "sentiment": "positive"
+        },
+        {
+          "text": "nibbles",
+          "editable": false
+        },
+        {
+          "text": "a",
+          "editable": false
+        },
+        {
+          "text": "sweet",
+          "editable": true,
+          "pos": "ADJ",
+          "sentiment": "positive"
+        },
+        {
+          "text": "cupcake",
+          "editable": true,
+          "pos": "NOUN",
+          "sentiment": "positive"
+        }
+      ]
+    }
+  ],
+  "_meta": {
+    "nltk_words_added": 0
+  }
+}
