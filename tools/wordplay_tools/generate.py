@@ -1,11 +1,11 @@
 """Build ``word_bank.json`` for the Godot game.
 
-Combines the curated lexicon (always) with optional NLTK enrichment (if present)
-into a single JSON file containing:
+Combines the curated lexicon (draw pools + combat metadata) with syntax-parsed
+character sentences (owner + items recovered via spaCy) into one JSON file:
 
-- ``word_pools``  : {pos: {sentiment: [words]}} — the draw pools for re-rolls
-- ``characters``  : pre-tokenized starting sentences
-- ``sentiments``  : the sentiment vocabulary (so the game stays in sync)
+- ``pools``       : {kind: {sentiment: [words+metadata]}} — re-roll draw pools
+- ``characters``  : parsed combat-ready characters (tokens, items, max_hp, ...)
+- ``item_types``  : the four item-type names (kept in sync with the game)
 
 Run via the console script:  ``wordplay-generate``  (see pyproject.toml).
 """
@@ -16,72 +16,33 @@ import argparse
 import json
 from pathlib import Path
 
-from . import lexicon
+from . import lexicon, parse
 
-# Default output: the Godot project's data folder, resolved from this file.
 _DEFAULT_OUT = (
     Path(__file__).resolve().parents[2] / "game" / "data" / "word_bank.json"
 )
 
 
-def _enrich_with_nltk(pools: dict[str, dict[str, list[str]]]) -> int:
-    """Best-effort: pull extra adjectives/nouns from WordNet, tagged by SentiWordNet.
-
-    Returns the number of words added. Silently does nothing if NLTK or its data
-    is unavailable — the curated pools alone are always sufficient.
-    """
-    try:
-        from nltk.corpus import sentiwordnet as swn
-        from nltk.corpus import wordnet as wn
-    except Exception:
-        return 0
-
-    existing = {w for sub in pools.values() for words in sub.values() for w in words}
-    added = 0
-    targets = [(lexicon.POS_ADJ, wn.ADJ), (lexicon.POS_NOUN, wn.NOUN)]
-    try:
-        for pos, wn_pos in targets:
-            for synset in list(wn.all_synsets(wn_pos))[:4000]:
-                lemma = synset.lemmas()[0].name()
-                if "_" in lemma or not lemma.isalpha() or len(lemma) < 3:
-                    continue
-                lemma = lemma.lower()
-                if lemma in existing:
-                    continue
-                senti = list(swn.senti_synsets(lemma, wn_pos))
-                if not senti:
-                    continue
-                s = senti[0]
-                if s.pos_score() >= 0.5:
-                    sentiment = lexicon.POSITIVE
-                elif s.neg_score() >= 0.5:
-                    sentiment = lexicon.NEGATIVE
-                else:
-                    continue  # only add clearly-charged words from NLP
-                pools[pos][sentiment].append(lemma)
-                existing.add(lemma)
-                added += 1
-    except Exception:
-        return added
-    return added
-
-
-def build_bank(use_nltk: bool = True) -> dict:
-    """Assemble the full word-bank dict."""
-    pools = lexicon.all_pools()
-    enriched = _enrich_with_nltk(pools) if use_nltk else 0
+def build_bank(use_spacy: bool = True) -> dict:
+    nlp = parse.load_nlp() if use_spacy else None
+    characters = parse.parse_all(lexicon.CHARACTER_SENTENCES, nlp=nlp)
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "sentiments": list(lexicon.SENTIMENTS),
-        "parts_of_speech": [lexicon.POS_ADJ, lexicon.POS_NOUN],
-        "word_pools": pools,
-        "characters": lexicon.character_templates(),
-        "_meta": {"nltk_words_added": enriched},
+        "kinds": [lexicon.KIND_CREATURE, lexicon.KIND_ITEM, lexicon.KIND_ADJ],
+        "item_types": list(lexicon.ITEM_TYPES),
+        "offensive_types": list(lexicon.OFFENSIVE_TYPES),
+        "defensive_types": list(lexicon.DEFENSIVE_TYPES),
+        "pools": lexicon.build_pools(),
+        "characters": characters,
+        "_meta": {
+            "owner_detection": "spacy" if nlp is not None else "heuristic",
+        },
     }
 
 
-def write_bank(out_path: Path, use_nltk: bool = True) -> dict:
-    bank = build_bank(use_nltk=use_nltk)
+def write_bank(out_path: Path, use_spacy: bool = True) -> dict:
+    bank = build_bank(use_spacy=use_spacy)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(bank, indent=2) + "\n", encoding="utf-8")
     return bank
@@ -94,20 +55,29 @@ def main(argv: list[str] | None = None) -> int:
         help=f"Output JSON path (default: {_DEFAULT_OUT})",
     )
     parser.add_argument(
-        "--no-nltk", action="store_true",
-        help="Skip optional NLTK enrichment (curated lexicon only).",
+        "--no-spacy", action="store_true",
+        help="Skip spaCy and use the heuristic owner detector.",
     )
     args = parser.parse_args(argv)
 
-    bank = write_bank(args.out, use_nltk=not args.no_nltk)
-    pools = bank["word_pools"]
-    counts = {
-        pos: {s: len(w) for s, w in sub.items()} for pos, sub in pools.items()
-    }
+    bank = write_bank(args.out, use_spacy=not args.no_spacy)
     print(f"Wrote {args.out}")
-    print(f"  word counts: {counts}")
-    print(f"  characters : {[c['name'] for c in bank['characters']]}")
-    print(f"  nltk added : {bank['_meta']['nltk_words_added']}")
+    print(f"  owner detection: {bank['_meta']['owner_detection']}")
+    for c in bank["characters"]:
+        owner = next(
+            (t["text"] for t in c["tokens"]
+             if t["kind"] == lexicon.KIND_CREATURE and t.get("is_owner")),
+            "?",
+        )
+        items = [
+            f"{t['text']}({t['item_type']})"
+            for t in sorted(
+                (t for t in c["tokens"] if t["kind"] == lexicon.KIND_ITEM),
+                key=lambda t: t["item_index"],
+            )
+        ]
+        print(f"  {c['role']:6} {c['name']:8} hp={c['max_hp']:2} "
+              f"owner={owner:8} via {c['owner_method']:16} items={items}")
     return 0
 
 

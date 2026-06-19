@@ -1,56 +1,64 @@
 # Wordplay
 
-A word-battle game. Each **character is a sentence**. You fight by **clicking the
-enemy's words**, which **randomizes** them — and the enemy does the same back to you.
+A turn-based word-battle game. Each **character is a sentence**. The sentence's
+**subject is its "owner"** (the creature itself); every **other noun is an item**.
+Owners deal no damage — only items do. **Adjectives are multipliers** that scale
+the item they modify.
 
-Words are tagged by **part of speech** (adjective / noun) and **sentiment**
-(positive / negative / neutral):
+> 🐉 `The fierce dragon swings a sharp knife and casts a wicked hex.`
+> &nbsp;&nbsp;&nbsp;&nbsp;owner = **dragon** · items = **sharp knife** (HP attack), **wicked hex** (word attack)
 
-> 🐉 `The fierce dragon clutches a sharp knife`  ← all-negative: dangerous
-> 🐱 `The cozy kitten hugs a fuzzy pillow`        ← all-positive: harmless
+## How it plays
 
-Click the enemy's **red** (negative) words to re-roll them. Every re-roll keeps the
-**same part of speech** (an adjective becomes another adjective, a noun another noun)
-but lands on a random sentiment. Leave the enemy with **zero negative words** and you
-win; let the enemy push **3 negative words** onto you and you lose.
+- **Your turn:** click one of *your* item words to use it.
+- **Enemy turn:** the enemy cycles through its items in a **fixed, telegraphed
+  order** — you always see what it will do next (Inscryption-style).
+- Every action is one of two kinds:
+  - **General attack** → direct **HP** damage. Amount = the item noun's base power
+    × its adjective multiplier (e.g. `knife` base 2 × `sharp` ×1.5 = **3**).
+  - **Word-randomization attack** → scrambles the opponent's words (same part of
+    speech), which can change their items *and* their sentiment.
+- **Items come in four types:**
 
-```
-ENEMY — Dragon   (threats: 4)
-┌──────────────────────────────────────────────┐
-│ The  [fierce]  [dragon]  clutches  a  [sharp]  [knife] │   ← red = click to randomize
-└──────────────────────────────────────────────┘
+  | type | offensive/defensive | effect |
+  |------|---------------------|--------|
+  | `hp_attack`    | offensive | direct HP damage |
+  | `word_attack`  | offensive | randomizes opponent words |
+  | `hp_defense`   | defensive | restores your HP |
+  | `word_defense` | defensive | raises **wards** that block incoming randomization |
 
-YOU — Cat   (corruption: 0 / 3)
-┌──────────────────────────────────────────────┐
-│ The  cozy  kitten  hugs  a  fuzzy  pillow      │   ← green = safe
-└──────────────────────────────────────────────┘
-```
+- **Max HP = the number of words** in your sentence.
+- **Win** by either **defeating** the enemy (HP → 0) *or* **pacifying** it
+  (randomize its words until **none are negative**).
+- **Lose** if **your HP** hits 0. (Corruption doesn't kill you — only HP does.)
 
 ## Architecture
 
-The NLP runs **at build time** in Python, so the game ships pure data and never
-needs a Python runtime or model weights:
+The NLP runs **at build time** in Python, so the game ships pure data and needs
+no Python runtime:
 
 ```
-tools/   →  Python (uv) tooling: curated, sentiment-tagged lexicon + optional
-            NLTK enrichment + a sentence tagger.  Emits ↓
+tools/   →  Python (uv): curated combat lexicon + spaCy sentence parsing.
+            Emits ↓
 game/data/word_bank.json   →  read by ↓
-game/    →  Godot 4.6 project: loads the word bank, renders each sentence as
-            clickable word-buttons, runs the turn loop.
+game/    →  Godot 4.6 project: combat engine + UI.
 ```
 
-- **Part-of-speech awareness** — every editable word carries `pos` (`ADJ`/`NOUN`);
-  re-rolls draw only from the matching pool, so grammar never breaks.
-- **Sentiment awareness** — every word carries a `sentiment`; the win/lose check is
-  literally "does this character still have any negative words?"
-- The Python tooling is the place to add words, characters, or smarter NLP.
+- **Owner via syntax** — spaCy's dependency parse finds the grammatical **subject**
+  (`nsubj`); that's the owner. Other nouns become items. spaCy's POS tags are noisy
+  on terse fantasy text, so the curated lexicon is the authority on each word's
+  *kind* while spaCy supplies the *structure* (subject + which noun each adjective
+  modifies). See `tools/wordplay_tools/parse.py`.
+- **Items & multipliers** — the lexicon assigns each item noun an `item_type` +
+  `base` power and each adjective a `mult`. `parse.py` links adjectives to the noun
+  they modify, so `item power = base × ∏(adjective mults)`.
+- **Pure logic** — `game/game_logic.gd` (`GameLogic`) holds all combat rules with
+  no UI, so it's unit-tested headlessly.
 
 ## Prerequisites
 
-- [Godot 4.6+](https://godotengine.org/) (`godot` on your PATH)
+- [Godot 4.6+](https://godotengine.org/) (`godot` on PATH)
 - [uv](https://docs.astral.sh/uv/)
-
-Both are already installed if `godot --version` and `uv --version` work.
 
 ## Setup
 
@@ -59,46 +67,41 @@ Both are already installed if `godot --version` and `uv --version` work.
 ```bash
 cd tools
 uv venv
-uv pip install -e ".[dev]"          # core + pytest
-uv run wordplay-generate            # writes ../game/data/word_bank.json
-uv run pytest                       # run the tests
+uv pip install -e ".[dev]"                       # installs spaCy + pytest
+uv run python -m spacy download en_core_web_sm    # one-time: the English model
+uv run wordplay-generate                          # writes ../game/data/word_bank.json
+uv run pytest
 ```
 
-Optional — richer vocabulary via NLTK (otherwise the curated lexicon is used):
+`word_bank.json` is committed, so you can run the game without regenerating — but
+re-run `wordplay-generate` whenever you edit the lexicon or characters.
 
-```bash
-uv pip install -e ".[dev,nlp]"
-uv run python -m nltk.downloader averaged_perceptron_tagger wordnet sentiwordnet omw-1.4
-uv run wordplay-generate            # now enriches pools from WordNet/SentiWordNet
-```
-
-`word_bank.json` is committed, so you can run the game without this step — but
-regenerate it whenever you edit the lexicon or characters.
+Without the spaCy model the generator still works via a heuristic owner detector
+(`uv run wordplay-generate --no-spacy`); spaCy is the intended path.
 
 ### 2. Run the game (Godot)
 
 ```bash
-godot --path game                   # opens and runs the project
-# or open the `game/` folder in the Godot editor and press Play (F5)
+godot --path game            # or open game/ in the editor and press F5
 ```
 
 ## Project layout
 
 ```
 wordplay/
-├── README.md
-├── .gitignore
+├── README.md  ·  .gitignore
 ├── tools/                       # Python build tooling (uv project)
 │   ├── pyproject.toml
 │   ├── wordplay_tools/
-│   │   ├── lexicon.py           # curated word pools + character templates
-│   │   ├── generate.py          # builds word_bank.json (+ optional NLTK)
-│   │   └── tag.py               # POS+sentiment tagger for raw sentences
+│   │   ├── lexicon.py           # creatures, typed items, multiplier adjectives,
+│   │   │                        #   and the character sentences
+│   │   ├── parse.py             # spaCy owner/item/adjective parsing (+ fallback)
+│   │   └── generate.py          # builds word_bank.json
 │   └── tests/test_generate.py
 └── game/                        # Godot 4.6 project
     ├── project.godot
     ├── main.tscn / main.gd      # UI + turn loop (built in code)
-    ├── game_logic.gd            # pure, UI-free game rules (GameLogic class)
+    ├── game_logic.gd            # GameLogic: pure combat rules
     ├── selftest.gd              # headless smoke test
     └── data/word_bank.json      # generated; consumed at runtime
 ```
@@ -106,28 +109,26 @@ wordplay/
 ## Testing
 
 ```bash
-# Python tooling
-cd tools && uv run pytest
-
-# Godot logic (headless, no display needed)
-godot --headless --path game --script res://selftest.gd
+cd tools && uv run pytest                                   # Python tooling
+godot --headless --path game --script res://selftest.gd     # Godot combat logic
 ```
 
 ## Extending it
 
-- **New words** → edit the pools in `tools/wordplay_tools/lexicon.py`.
-- **New characters** → add templates in `lexicon.py` (`character_templates()`), or
-  author them from English using `tag.tag_sentence("Your sentence here")`.
-- **Tune difficulty** → `LOSE_THRESHOLD` in `game/game_logic.gd`, and the re-roll
-  sentiment weighting bags (`PLAYER_BAG` / `ENEMY_BAG`) in `game/main.gd`.
-- Always re-run `uv run wordplay-generate` after editing the lexicon.
+- **Words / item powers / multipliers** → edit `tools/wordplay_tools/lexicon.py`
+  (`CREATURES`, `ITEMS`, `ADJECTIVES`).
+- **New characters** → add a sentence to `CHARACTER_SENTENCES`; the parser finds
+  its owner and items automatically. Keep one subject + a couple of object nouns.
+- **Difficulty / feel** → tweak base powers and multipliers in the lexicon.
+- Re-run `uv run wordplay-generate` after any lexicon change.
 
 ## Ideas / next steps
 
-- Multi-sentence characters and longer battles.
-- Make re-rolls strategic rather than pure chance (e.g. spend "energy", preview odds).
-- Verb editing and more parts of speech.
-- Richer sentiment via a real model instead of the lexicon.
+- Let the player *target* which enemy word a randomizer scrambles (currently random).
+- Multi-sentence characters; status effects; an energy economy so turns are choices.
+- Smarter enemy AI instead of a fixed cycle (the cycle is intentional for now —
+  it's the telegraph).
+- Richer sentiment/POS from a larger model instead of the curated lexicon.
 
 ## License
 

@@ -4,14 +4,12 @@ version = "0.1.0"
 description = "Build-time NLP tooling for the Wordplay Godot game (word bank + sentence tagging)."
 readme = "README.md"
 requires-python = ">=3.10"
-dependencies = []
+# spaCy provides the dependency parse used to find each character's owner (the
+# grammatical subject). The English model is installed separately, see README:
+#   uv run python -m spacy download en_core_web_sm
+dependencies = ["spacy>=3.7"]
 
 [project.optional-dependencies]
-# Optional NLP enrichment. The generator works fully without these; install with
-#   uv pip install -e ".[nlp]"
-# and then download data once:
-#   uv run python -m nltk.downloader punkt averaged_perceptron_tagger wordnet sentiwordnet omw-1.4
-nlp = ["nltk>=3.8"]
 dev = ["pytest>=8.0"]
 
 [project.scripts]

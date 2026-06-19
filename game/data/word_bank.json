@@ -1,149 +1,422 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "sentiments": [
     "positive",
     "negative",
     "neutral"
   ],
-  "parts_of_speech": [
-    "ADJ",
-    "NOUN"
+  "kinds": [
+    "creature",
+    "item",
+    "adjective"
   ],
-  "word_pools": {
-    "ADJ": {
+  "item_types": [
+    "hp_attack",
+    "word_attack",
+    "hp_defense",
+    "word_defense"
+  ],
+  "offensive_types": [
+    "hp_attack",
+    "word_attack"
+  ],
+  "defensive_types": [
+    "hp_defense",
+    "word_defense"
+  ],
+  "pools": {
+    "creature": {
       "positive": [
-        "cozy",
-        "gentle",
-        "fuzzy",
-        "kind",
-        "cheerful",
-        "warm",
-        "soft",
-        "friendly",
-        "radiant",
-        "playful",
-        "sweet",
-        "calm",
-        "lovely",
-        "graceful",
-        "bright",
-        "tender",
-        "merry",
-        "snug",
-        "darling",
-        "serene"
+        {
+          "text": "kitten"
+        },
+        {
+          "text": "puppy"
+        },
+        {
+          "text": "lamb"
+        },
+        {
+          "text": "bunny"
+        },
+        {
+          "text": "fawn"
+        },
+        {
+          "text": "duckling"
+        }
       ],
       "negative": [
-        "fierce",
-        "sharp",
-        "cruel",
-        "jagged",
-        "venomous",
-        "savage",
-        "wicked",
-        "menacing",
-        "brutal",
-        "ruthless",
-        "spiky",
-        "vicious",
-        "grim",
-        "monstrous",
-        "dreadful",
-        "hostile",
-        "rabid",
-        "sinister",
-        "deadly",
-        "ferocious"
+        {
+          "text": "dragon"
+        },
+        {
+          "text": "ogre"
+        },
+        {
+          "text": "wolf"
+        },
+        {
+          "text": "demon"
+        },
+        {
+          "text": "serpent"
+        },
+        {
+          "text": "goblin"
+        }
       ],
       "neutral": [
-        "tall",
-        "round",
-        "wooden",
-        "ancient",
-        "distant",
-        "quiet",
-        "hollow",
-        "damp",
-        "grey",
-        "wide",
-        "narrow",
-        "plain",
-        "ordinary",
-        "still",
-        "heavy",
-        "pale",
-        "smooth",
-        "vast",
-        "faint",
-        "dim"
+        {
+          "text": "knight"
+        },
+        {
+          "text": "mage"
+        },
+        {
+          "text": "sheep"
+        },
+        {
+          "text": "badger"
+        },
+        {
+          "text": "heron"
+        },
+        {
+          "text": "goat"
+        }
       ]
     },
-    "NOUN": {
+    "item": {
       "positive": [
-        "kitten",
-        "pillow",
-        "garden",
-        "friend",
-        "blanket",
-        "puppy",
-        "bakery",
-        "meadow",
-        "teacup",
-        "songbird",
-        "cupcake",
-        "hearth",
-        "lantern",
-        "bouquet",
-        "harp",
-        "cottage",
-        "rainbow",
-        "honey",
-        "quilt",
-        "daisy"
+        {
+          "text": "potion",
+          "item_type": "hp_defense",
+          "base": 2
+        },
+        {
+          "text": "salve",
+          "item_type": "hp_defense",
+          "base": 2
+        },
+        {
+          "text": "bandage",
+          "item_type": "hp_defense",
+          "base": 1
+        },
+        {
+          "text": "amulet",
+          "item_type": "word_defense",
+          "base": 1
+        },
+        {
+          "text": "charm",
+          "item_type": "word_defense",
+          "base": 1
+        }
       ],
       "negative": [
-        "dragon",
-        "knife",
-        "fang",
-        "serpent",
-        "blade",
-        "wolf",
-        "spear",
-        "claw",
-        "demon",
-        "scorpion",
-        "axe",
-        "viper",
-        "skull",
-        "grave",
-        "shackle",
-        "ogre",
-        "dagger",
-        "wraith",
-        "hornet",
-        "thorn"
+        {
+          "text": "knife",
+          "item_type": "hp_attack",
+          "base": 2
+        },
+        {
+          "text": "dagger",
+          "item_type": "hp_attack",
+          "base": 1
+        },
+        {
+          "text": "axe",
+          "item_type": "hp_attack",
+          "base": 3
+        },
+        {
+          "text": "spear",
+          "item_type": "hp_attack",
+          "base": 2
+        },
+        {
+          "text": "blade",
+          "item_type": "hp_attack",
+          "base": 3
+        },
+        {
+          "text": "claw",
+          "item_type": "hp_attack",
+          "base": 2
+        },
+        {
+          "text": "fang",
+          "item_type": "hp_attack",
+          "base": 2
+        },
+        {
+          "text": "hex",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "curse",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "jinx",
+          "item_type": "word_attack",
+          "base": 2
+        }
       ],
       "neutral": [
-        "rock",
-        "table",
-        "river",
-        "tower",
-        "cloud",
-        "road",
-        "stone",
-        "barrel",
-        "window",
-        "fence",
-        "wheel",
-        "lamp",
-        "crate",
-        "hill",
-        "bucket",
-        "post",
-        "shelf",
-        "gate",
-        "bench",
-        "wall"
+        {
+          "text": "club",
+          "item_type": "hp_attack",
+          "base": 2
+        },
+        {
+          "text": "sword",
+          "item_type": "hp_attack",
+          "base": 3
+        },
+        {
+          "text": "hammer",
+          "item_type": "hp_attack",
+          "base": 3
+        },
+        {
+          "text": "wand",
+          "item_type": "word_attack",
+          "base": 1
+        },
+        {
+          "text": "scroll",
+          "item_type": "word_attack",
+          "base": 1
+        },
+        {
+          "text": "rune",
+          "item_type": "word_attack",
+          "base": 1
+        },
+        {
+          "text": "spell",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "shield",
+          "item_type": "hp_defense",
+          "base": 2
+        },
+        {
+          "text": "armor",
+          "item_type": "hp_defense",
+          "base": 3
+        },
+        {
+          "text": "wall",
+          "item_type": "hp_defense",
+          "base": 2
+        },
+        {
+          "text": "ward",
+          "item_type": "word_defense",
+          "base": 1
+        },
+        {
+          "text": "talisman",
+          "item_type": "word_defense",
+          "base": 2
+        },
+        {
+          "text": "totem",
+          "item_type": "word_defense",
+          "base": 1
+        }
+      ]
+    },
+    "adjective": {
+      "positive": [
+        {
+          "text": "little",
+          "mult": 0.75
+        },
+        {
+          "text": "gentle",
+          "mult": 0.75
+        },
+        {
+          "text": "soft",
+          "mult": 0.7
+        },
+        {
+          "text": "cozy",
+          "mult": 0.7
+        },
+        {
+          "text": "fuzzy",
+          "mult": 0.7
+        },
+        {
+          "text": "kind",
+          "mult": 0.75
+        },
+        {
+          "text": "sweet",
+          "mult": 0.7
+        },
+        {
+          "text": "warm",
+          "mult": 0.8
+        },
+        {
+          "text": "cheerful",
+          "mult": 0.8
+        },
+        {
+          "text": "lovely",
+          "mult": 0.8
+        },
+        {
+          "text": "trusty",
+          "mult": 1.2
+        },
+        {
+          "text": "brave",
+          "mult": 1.25
+        },
+        {
+          "text": "lucky",
+          "mult": 1.25
+        }
+      ],
+      "negative": [
+        {
+          "text": "giant",
+          "mult": 2.0
+        },
+        {
+          "text": "puny",
+          "mult": 0.5
+        },
+        {
+          "text": "sharp",
+          "mult": 1.5
+        },
+        {
+          "text": "fierce",
+          "mult": 1.75
+        },
+        {
+          "text": "wicked",
+          "mult": 1.75
+        },
+        {
+          "text": "savage",
+          "mult": 2.0
+        },
+        {
+          "text": "brutal",
+          "mult": 2.0
+        },
+        {
+          "text": "deadly",
+          "mult": 2.5
+        },
+        {
+          "text": "vicious",
+          "mult": 2.0
+        },
+        {
+          "text": "cruel",
+          "mult": 1.75
+        },
+        {
+          "text": "jagged",
+          "mult": 1.5
+        },
+        {
+          "text": "venomous",
+          "mult": 2.0
+        }
+      ],
+      "neutral": [
+        {
+          "text": "big",
+          "mult": 1.5
+        },
+        {
+          "text": "large",
+          "mult": 1.5
+        },
+        {
+          "text": "huge",
+          "mult": 2.0
+        },
+        {
+          "text": "massive",
+          "mult": 2.0
+        },
+        {
+          "text": "great",
+          "mult": 1.5
+        },
+        {
+          "text": "tiny",
+          "mult": 0.5
+        },
+        {
+          "text": "small",
+          "mult": 0.75
+        },
+        {
+          "text": "wee",
+          "mult": 0.6
+        },
+        {
+          "text": "mighty",
+          "mult": 1.75
+        },
+        {
+          "text": "sturdy",
+          "mult": 1.25
+        },
+        {
+          "text": "strong",
+          "mult": 1.5
+        },
+        {
+          "text": "heavy",
+          "mult": 1.5
+        },
+        {
+          "text": "glowing",
+          "mult": 1.25
+        },
+        {
+          "text": "tall",
+          "mult": 1.0
+        },
+        {
+          "text": "round",
+          "mult": 1.0
+        },
+        {
+          "text": "wooden",
+          "mult": 1.0
+        },
+        {
+          "text": "plain",
+          "mult": 1.0
+        },
+        {
+          "text": "old",
+          "mult": 1.0
+        },
+        {
+          "text": "clever",
+          "mult": 1.0
+        }
       ]
     }
   },
@@ -151,173 +424,485 @@
     {
       "name": "Dragon",
       "role": "enemy",
+      "source": "The fierce dragon swings a sharp knife and casts a wicked hex.",
+      "owner_method": "spacy:nsubj",
+      "max_hp": 12,
+      "item_order": [
+        0,
+        1
+      ],
       "tokens": [
         {
           "text": "The",
-          "editable": false
+          "kind": "fixed"
         },
         {
           "text": "fierce",
-          "editable": true,
-          "pos": "ADJ",
-          "sentiment": "negative"
+          "kind": "adjective",
+          "sentiment": "negative",
+          "mult": 1.75,
+          "attaches": "owner"
         },
         {
           "text": "dragon",
-          "editable": true,
-          "pos": "NOUN",
-          "sentiment": "negative"
+          "kind": "creature",
+          "sentiment": "negative",
+          "is_owner": true
         },
         {
-          "text": "clutches",
-          "editable": false
+          "text": "swings",
+          "kind": "fixed"
         },
         {
           "text": "a",
-          "editable": false
+          "kind": "fixed"
         },
         {
           "text": "sharp",
-          "editable": true,
-          "pos": "ADJ",
-          "sentiment": "negative"
+          "kind": "adjective",
+          "sentiment": "negative",
+          "mult": 1.5,
+          "attaches": "item:0"
         },
         {
           "text": "knife",
-          "editable": true,
-          "pos": "NOUN",
-          "sentiment": "negative"
-        }
-      ]
-    },
-    {
-      "name": "Cat",
-      "role": "player",
-      "tokens": [
-        {
-          "text": "The",
-          "editable": false
+          "kind": "item",
+          "sentiment": "negative",
+          "item_type": "hp_attack",
+          "base": 2,
+          "item_index": 0
         },
         {
-          "text": "cozy",
-          "editable": true,
-          "pos": "ADJ",
-          "sentiment": "positive"
+          "text": "and",
+          "kind": "fixed"
         },
         {
-          "text": "kitten",
-          "editable": true,
-          "pos": "NOUN",
-          "sentiment": "positive"
-        },
-        {
-          "text": "hugs",
-          "editable": false
+          "text": "casts",
+          "kind": "fixed"
         },
         {
           "text": "a",
-          "editable": false
+          "kind": "fixed"
         },
         {
-          "text": "fuzzy",
-          "editable": true,
-          "pos": "ADJ",
-          "sentiment": "positive"
+          "text": "wicked",
+          "kind": "adjective",
+          "sentiment": "negative",
+          "mult": 1.75,
+          "attaches": "item:1"
         },
         {
-          "text": "pillow",
-          "editable": true,
-          "pos": "NOUN",
-          "sentiment": "positive"
+          "text": "hex",
+          "kind": "item",
+          "sentiment": "negative",
+          "item_type": "word_attack",
+          "base": 2,
+          "item_index": 1
         }
       ]
     },
     {
       "name": "Ogre",
       "role": "enemy",
+      "source": "A savage ogre raises a brutal axe and grips a sturdy shield.",
+      "owner_method": "spacy:nsubj",
+      "max_hp": 12,
+      "item_order": [
+        0,
+        1
+      ],
       "tokens": [
         {
           "text": "A",
-          "editable": false
+          "kind": "fixed"
         },
         {
           "text": "savage",
-          "editable": true,
-          "pos": "ADJ",
-          "sentiment": "negative"
+          "kind": "adjective",
+          "sentiment": "negative",
+          "mult": 2.0,
+          "attaches": "owner"
         },
         {
           "text": "ogre",
-          "editable": true,
-          "pos": "NOUN",
-          "sentiment": "negative"
+          "kind": "creature",
+          "sentiment": "negative",
+          "is_owner": true
         },
         {
-          "text": "swings",
-          "editable": false
+          "text": "raises",
+          "kind": "fixed"
         },
         {
           "text": "a",
-          "editable": false
+          "kind": "fixed"
         },
         {
           "text": "brutal",
-          "editable": true,
-          "pos": "ADJ",
-          "sentiment": "negative"
+          "kind": "adjective",
+          "sentiment": "negative",
+          "mult": 2.0,
+          "attaches": "item:0"
         },
         {
           "text": "axe",
-          "editable": true,
-          "pos": "NOUN",
-          "sentiment": "negative"
+          "kind": "item",
+          "sentiment": "negative",
+          "item_type": "hp_attack",
+          "base": 3,
+          "item_index": 0
+        },
+        {
+          "text": "and",
+          "kind": "fixed"
+        },
+        {
+          "text": "grips",
+          "kind": "fixed"
+        },
+        {
+          "text": "a",
+          "kind": "fixed"
+        },
+        {
+          "text": "sturdy",
+          "kind": "adjective",
+          "sentiment": "neutral",
+          "mult": 1.25,
+          "attaches": "item:1"
+        },
+        {
+          "text": "shield",
+          "kind": "item",
+          "sentiment": "neutral",
+          "item_type": "hp_defense",
+          "base": 2,
+          "item_index": 1
         }
       ]
     },
     {
-      "name": "Bunny",
-      "role": "player",
+      "name": "Wolf",
+      "role": "enemy",
+      "source": "The vicious wolf bares a deadly fang and swings a jagged claw.",
+      "owner_method": "spacy:nsubj+lexicon",
+      "max_hp": 12,
+      "item_order": [
+        0,
+        1
+      ],
       "tokens": [
         {
-          "text": "A",
-          "editable": false
+          "text": "The",
+          "kind": "fixed"
         },
         {
-          "text": "gentle",
-          "editable": true,
-          "pos": "ADJ",
-          "sentiment": "positive"
+          "text": "vicious",
+          "kind": "adjective",
+          "sentiment": "negative",
+          "mult": 2.0,
+          "attaches": "owner"
         },
         {
-          "text": "puppy",
-          "editable": true,
-          "pos": "NOUN",
-          "sentiment": "positive"
+          "text": "wolf",
+          "kind": "creature",
+          "sentiment": "negative",
+          "is_owner": true
         },
         {
-          "text": "nibbles",
-          "editable": false
+          "text": "bares",
+          "kind": "fixed"
         },
         {
           "text": "a",
-          "editable": false
+          "kind": "fixed"
+        },
+        {
+          "text": "deadly",
+          "kind": "adjective",
+          "sentiment": "negative",
+          "mult": 2.5,
+          "attaches": "item:0"
+        },
+        {
+          "text": "fang",
+          "kind": "item",
+          "sentiment": "negative",
+          "item_type": "hp_attack",
+          "base": 2,
+          "item_index": 0
+        },
+        {
+          "text": "and",
+          "kind": "fixed"
+        },
+        {
+          "text": "swings",
+          "kind": "fixed"
+        },
+        {
+          "text": "a",
+          "kind": "fixed"
+        },
+        {
+          "text": "jagged",
+          "kind": "adjective",
+          "sentiment": "negative",
+          "mult": 1.5,
+          "attaches": "item:1"
+        },
+        {
+          "text": "claw",
+          "kind": "item",
+          "sentiment": "negative",
+          "item_type": "hp_attack",
+          "base": 2,
+          "item_index": 1
+        }
+      ]
+    },
+    {
+      "name": "Knight",
+      "role": "player",
+      "source": "The brave knight thrusts a mighty spear and lifts a sturdy shield.",
+      "owner_method": "spacy:nsubj",
+      "max_hp": 12,
+      "item_order": [
+        0,
+        1
+      ],
+      "tokens": [
+        {
+          "text": "The",
+          "kind": "fixed"
+        },
+        {
+          "text": "brave",
+          "kind": "adjective",
+          "sentiment": "positive",
+          "mult": 1.25,
+          "attaches": "owner"
+        },
+        {
+          "text": "knight",
+          "kind": "creature",
+          "sentiment": "neutral",
+          "is_owner": true
+        },
+        {
+          "text": "thrusts",
+          "kind": "fixed"
+        },
+        {
+          "text": "a",
+          "kind": "fixed"
+        },
+        {
+          "text": "mighty",
+          "kind": "adjective",
+          "sentiment": "neutral",
+          "mult": 1.75,
+          "attaches": "item:0"
+        },
+        {
+          "text": "spear",
+          "kind": "item",
+          "sentiment": "negative",
+          "item_type": "hp_attack",
+          "base": 2,
+          "item_index": 0
+        },
+        {
+          "text": "and",
+          "kind": "fixed"
+        },
+        {
+          "text": "lifts",
+          "kind": "fixed"
+        },
+        {
+          "text": "a",
+          "kind": "fixed"
+        },
+        {
+          "text": "sturdy",
+          "kind": "adjective",
+          "sentiment": "neutral",
+          "mult": 1.25,
+          "attaches": "item:1"
+        },
+        {
+          "text": "shield",
+          "kind": "item",
+          "sentiment": "neutral",
+          "item_type": "hp_defense",
+          "base": 2,
+          "item_index": 1
+        }
+      ]
+    },
+    {
+      "name": "Mage",
+      "role": "player",
+      "source": "A clever mage waves a glowing wand and wears a lucky amulet.",
+      "owner_method": "spacy:lexicon-fallback",
+      "max_hp": 12,
+      "item_order": [
+        0,
+        1
+      ],
+      "tokens": [
+        {
+          "text": "A",
+          "kind": "fixed"
+        },
+        {
+          "text": "clever",
+          "kind": "adjective",
+          "sentiment": "neutral",
+          "mult": 1.0,
+          "attaches": "owner"
+        },
+        {
+          "text": "mage",
+          "kind": "creature",
+          "sentiment": "neutral",
+          "is_owner": true
+        },
+        {
+          "text": "waves",
+          "kind": "fixed"
+        },
+        {
+          "text": "a",
+          "kind": "fixed"
+        },
+        {
+          "text": "glowing",
+          "kind": "adjective",
+          "sentiment": "neutral",
+          "mult": 1.25,
+          "attaches": "item:0"
+        },
+        {
+          "text": "wand",
+          "kind": "item",
+          "sentiment": "neutral",
+          "item_type": "word_attack",
+          "base": 1,
+          "item_index": 0
+        },
+        {
+          "text": "and",
+          "kind": "fixed"
+        },
+        {
+          "text": "wears",
+          "kind": "fixed"
+        },
+        {
+          "text": "a",
+          "kind": "fixed"
+        },
+        {
+          "text": "lucky",
+          "kind": "adjective",
+          "sentiment": "positive",
+          "mult": 1.25,
+          "attaches": "item:1"
+        },
+        {
+          "text": "amulet",
+          "kind": "item",
+          "sentiment": "positive",
+          "item_type": "word_defense",
+          "base": 1,
+          "item_index": 1
+        }
+      ]
+    },
+    {
+      "name": "Kitten",
+      "role": "player",
+      "source": "The cozy kitten swings a trusty club and sips a sweet potion.",
+      "owner_method": "spacy:nsubj",
+      "max_hp": 12,
+      "item_order": [
+        0,
+        1
+      ],
+      "tokens": [
+        {
+          "text": "The",
+          "kind": "fixed"
+        },
+        {
+          "text": "cozy",
+          "kind": "adjective",
+          "sentiment": "positive",
+          "mult": 0.7,
+          "attaches": "owner"
+        },
+        {
+          "text": "kitten",
+          "kind": "creature",
+          "sentiment": "positive",
+          "is_owner": true
+        },
+        {
+          "text": "swings",
+          "kind": "fixed"
+        },
+        {
+          "text": "a",
+          "kind": "fixed"
+        },
+        {
+          "text": "trusty",
+          "kind": "adjective",
+          "sentiment": "positive",
+          "mult": 1.2,
+          "attaches": "item:0"
+        },
+        {
+          "text": "club",
+          "kind": "item",
+          "sentiment": "neutral",
+          "item_type": "hp_attack",
+          "base": 2,
+          "item_index": 0
+        },
+        {
+          "text": "and",
+          "kind": "fixed"
+        },
+        {
+          "text": "sips",
+          "kind": "fixed"
+        },
+        {
+          "text": "a",
+          "kind": "fixed"
         },
         {
           "text": "sweet",
-          "editable": true,
-          "pos": "ADJ",
-          "sentiment": "positive"
+          "kind": "adjective",
+          "sentiment": "positive",
+          "mult": 0.7,
+          "attaches": "item:1"
         },
         {
-          "text": "cupcake",
-          "editable": true,
-          "pos": "NOUN",
-          "sentiment": "positive"
+          "text": "potion",
+          "kind": "item",
+          "sentiment": "positive",
+          "item_type": "hp_defense",
+          "base": 2,
+          "item_index": 1
         }
       ]
     }
   ],
   "_meta": {
-    "nltk_words_added": 0
+    "owner_detection": "spacy"
   }
 }

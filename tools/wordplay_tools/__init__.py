@@ -7,4 +7,4 @@ The NLP happens here, at build time, so the game itself never needs a Python
 runtime or model weights — it just reads ``word_bank.json``.
 """
 
-__all__ = ["lexicon", "generate", "tag"]
+__all__ = ["lexicon", "generate", "parse"]
