@@ -109,13 +109,20 @@ static func item_token(tokens: Array, item_index: int) -> Dictionary:
 			return t
 	return {}
 
+## The adjective tokens modifying a given item.
+static func item_adjectives(tokens: Array, item_index: int) -> Array:
+	var key := "item:%d" % item_index
+	var adjs: Array = []
+	for t in tokens:
+		if t.get("kind", "") == KIND_ADJ and t.get("attaches", "") == key:
+			adjs.append(t)
+	return adjs
+
 ## Combined multiplier from every adjective modifying this item.
 static func item_multiplier(tokens: Array, item_index: int) -> float:
 	var mult := 1.0
-	var key := "item:%d" % item_index
-	for t in tokens:
-		if t.get("kind", "") == KIND_ADJ and t.get("attaches", "") == key:
-			mult *= float(t.get("mult", 1.0))
+	for t in item_adjectives(tokens, item_index):
+		mult *= float(t.get("mult", 1.0))
 	return mult
 
 ## Resolve an item to {type, base, mult, amount, noun}. amount = base * mult,
@@ -136,15 +143,11 @@ static func item_power(tokens: Array, item_index: int) -> Dictionary:
 
 ## "sharp knife" — adjective(s) + the item noun, for display.
 static func item_label(tokens: Array, item_index: int) -> String:
-	var key := "item:%d" % item_index
-	var adjs: Array = []
-	for t in tokens:
-		if t.get("kind", "") == KIND_ADJ and t.get("attaches", "") == key:
-			adjs.append(t.get("text", ""))
-	var noun: String = item_token(tokens, item_index).get("text", "?")
-	if adjs.is_empty():
-		return noun
-	return " ".join(adjs) + " " + noun
+	var words: Array = []
+	for t in item_adjectives(tokens, item_index):
+		words.append(t.get("text", ""))
+	words.append(item_token(tokens, item_index).get("text", "?"))
+	return " ".join(words)
 
 
 # --- mutation ----------------------------------------------------------------
@@ -177,28 +180,38 @@ static func reroll_token(token: Dictionary, pools: Dictionary, rng: RandomNumber
 	return token["text"]
 
 
-## Scramble up to `count` of a fighter's editable words, honoring its wards.
-## Returns {scrambled: [token_index...], blocked: int}.
+## Scramble up to `count` random editable words (used for auto-targeted attacks,
+## e.g. the enemy AI). Returns {scrambled: [token_index...], blocked: int}.
 static func scramble_words(target: Dictionary, count: int, pools: Dictionary, rng: RandomNumberGenerator) -> Dictionary:
 	var pool: Array = editable_indices(target.tokens)
 	var scrambled: Array = []
 	var blocked := 0
 	var done := 0
-	while done < count:
-		if int(target.wards) > 0:
-			target.wards = int(target.wards) - 1
+	while done < count and not pool.is_empty():
+		var token_index: int = pool.pop_at(rng.randi_range(0, pool.size() - 1))
+		var r := scramble_one(target, token_index, pools, rng)
+		if r.get("blocked", false):
 			blocked += 1
-			done += 1
-			continue
-		if pool.is_empty():
-			break
-		var pick := rng.randi_range(0, pool.size() - 1)
-		var token_index: int = pool[pick]
-		pool.remove_at(pick)
-		if reroll_token(target.tokens[token_index], pools, rng) != "":
+		elif r.get("ok", false):
 			scrambled.append(token_index)
 		done += 1
 	return {"scrambled": scrambled, "blocked": blocked}
+
+
+## Scramble one specific token (player-chosen target), honoring the owner's wards.
+## Returns {ok, blocked, text}. ok=false if the token isn't editable.
+static func scramble_one(target: Dictionary, token_index: int, pools: Dictionary, rng: RandomNumberGenerator) -> Dictionary:
+	var tokens: Array = target.tokens
+	if token_index < 0 or token_index >= tokens.size():
+		return {"ok": false}
+	var tok: Dictionary = tokens[token_index]
+	if not (tok.get("kind", "") in EDITABLE_KINDS):
+		return {"ok": false}
+	if int(target.wards) > 0:
+		target.wards = int(target.wards) - 1
+		return {"ok": true, "blocked": true, "text": tok.get("text", "")}
+	var word := reroll_token(tok, pools, rng)
+	return {"ok": true, "blocked": false, "text": word}
 
 
 ## Apply one item from `attacker` (offensive items hit `defender`, defensive
