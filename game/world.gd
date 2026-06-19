@@ -1,73 +1,100 @@
-## World prototype (NOT the game yet).
+## World prototype (NOT the game yet) — 3D.
 ##
-## A first step toward "a place made of words": a 2.5D field where each character
-## is a *pile of its sentence's words arranged into a rough figure*, and scenery
-## (a "tree") is itself a word-object. This is purely visual — no combat — meant
-## to find the look before wiring it to gameplay.
+## A step toward "a place made of words": a real 3D scene with a slowly orbiting
+## camera. Each character is its *sentence*, laid out in reading order (left to
+## right, top to bottom) but with rows that widen then narrow, so the pile of
+## words takes on a rough body silhouette. The owner word is bold but stays in
+## its sentence position — it is NOT pulled out to the top. Words are billboarded
+## Label3Ds so they always face the camera; scenery (a "tree") is a word too.
 ##
 ## View it with:  godot --path game world.tscn
-extends Node2D
+extends Node3D
 
-const COLOR_POSITIVE := Color(0.45, 0.88, 0.50)
-const COLOR_NEGATIVE := Color(0.96, 0.40, 0.40)
-const COLOR_NEUTRAL := Color(0.85, 0.85, 0.90)
-const COLOR_FIXED := Color(0.62, 0.62, 0.70)
+const COLOR_POSITIVE := Color(0.50, 0.90, 0.55)
+const COLOR_NEGATIVE := Color(0.97, 0.43, 0.43)
+const COLOR_NEUTRAL := Color(0.88, 0.88, 0.93)
+const COLOR_FIXED := Color(0.58, 0.58, 0.66)
 
-const SKY := Color(0.12, 0.13, 0.20)
-const GROUND := Color(0.16, 0.20, 0.17)
-const GROUND_Y := 400.0
+# Words per row, top to bottom — a narrow-wide-narrow profile reads as a body
+# (head, shoulders/torso, legs) while preserving left-to-right reading order.
+const BODY_PROFILE := [1, 2, 3, 3, 2, 2, 1]
+const TOP_Y := 3.7
+const ROW_H := 0.56
+const COL_W := 1.15
 
-# A loose humanoid skeleton: word slots relative to the figure's centre (y down).
-# Words fill these in order; leftovers pile near the belly. The point is a
-# body-ish silhouette, not a neat layout.
-const SKELETON := [
-	Vector2(0, -120),                                   # head
-	Vector2(0, -88),                                    # neck
-	Vector2(-38, -66), Vector2(38, -66),               # shoulders
-	Vector2(0, -54),                                    # chest
-	Vector2(-74, -34), Vector2(74, -34),               # upper arms
-	Vector2(0, -20),                                    # belly
-	Vector2(-104, -6), Vector2(104, -6),               # hands
-	Vector2(-26, 18), Vector2(26, 18),                 # hips
-	Vector2(-32, 64), Vector2(32, 64),                 # thighs
-	Vector2(-36, 116), Vector2(36, 116),               # feet
-]
-
-var _view: Vector2 = Vector2(900, 720)
+var _cam: Camera3D
+var _angle := 0.0
 
 
 func _ready() -> void:
-	_view = get_viewport_rect().size
+	_build_environment()
+	_cam = Camera3D.new()
+	_cam.fov = 58
+	add_child(_cam)
+	_cam.current = true
+	_place_camera()
+	_build_ground()
 	_add_scenery()
-	# Two characters standing in the field. Enemy is further back (higher +
-	# smaller), player is closer (lower + larger) — cheap 2.5D depth cues.
+
 	var bank := GameLogic.load_bank("res://data/word_bank.json")
 	var chars: Array = bank.get("characters", [])
 	var enemy := _find(chars, "Dragon")
 	var player := _find(chars, "Knight")
-	# Origins are placed so each figure's feet rest near the ground at its depth.
 	if not enemy.is_empty():
-		add_child(_make_figure(enemy.tokens, Vector2(300, 285), 0.82))
+		_add_figure(enemy.tokens, Vector3(-3.3, 0.0, 0.0))
 	if not player.is_empty():
-		add_child(_make_figure(player.tokens, Vector2(615, 350), 1.08))
+		_add_figure(player.tokens, Vector3(3.3, 0.0, 0.0))
 
-	var caption := _word_label("a place made of words — prototype", 16, COLOR_FIXED)
-	caption.position = Vector2(20, 16)
-	add_child(caption)
-	queue_redraw()
+	_add_caption("a place made of words — 3D prototype")
 
 
-func _draw() -> void:
-	# Sky + ground bands for a flat 2.5D horizon.
-	draw_rect(Rect2(Vector2.ZERO, Vector2(_view.x, GROUND_Y)), SKY)
-	draw_rect(Rect2(Vector2(0, GROUND_Y), Vector2(_view.x, _view.y - GROUND_Y)), GROUND)
+func _process(delta: float) -> void:
+	# Gentle orbit for depth / parallax.
+	_angle += delta * 0.18
+	_place_camera()
 
 
-func _find(chars: Array, name: String) -> Dictionary:
-	for c in chars:
-		if (c as Dictionary).get("name", "") == name:
-			return c
-	return {}
+func _place_camera() -> void:
+	var r := 9.5
+	_cam.position = Vector3(sin(_angle) * r, 3.1, cos(_angle) * r)
+	_cam.look_at(Vector3(0, 1.7, 0), Vector3.UP)
+
+
+# --- scene building ----------------------------------------------------------
+
+func _build_environment() -> void:
+	var we := WorldEnvironment.new()
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.10, 0.11, 0.18)
+	we.environment = env
+	add_child(we)
+
+
+func _build_ground() -> void:
+	var mi := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(60, 60)
+	mi.mesh = plane
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(0.14, 0.18, 0.15)
+	mi.material_override = mat
+	add_child(mi)
+
+
+func _word(text: String, font_size: int, color: Color, bold: bool) -> Label3D:
+	var l := Label3D.new()
+	l.text = text
+	l.font_size = font_size
+	l.pixel_size = 0.012
+	l.modulate = color
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.double_sided = true
+	if bold:
+		l.outline_size = 14
+		l.outline_modulate = Color(0, 0, 0, 0.85)
+	return l
 
 
 func _sentiment_color(token: Dictionary) -> Color:
@@ -79,56 +106,58 @@ func _sentiment_color(token: Dictionary) -> Color:
 		_: return COLOR_NEUTRAL
 
 
-func _word_label(text: String, size: int, color: Color) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_size_override("font_size", size)
-	l.add_theme_color_override("font_color", color)
-	l.reset_size()
-	return l
+## Lay a character's sentence into a body-shaped pile, in reading order.
+func _add_figure(tokens: Array, base: Vector3) -> void:
+	var fig := Node3D.new()
+	fig.position = base
+	add_child(fig)
+
+	var idx := 0
+	var row := 0
+	while idx < tokens.size():
+		var count: int = (BODY_PROFILE[row] if row < BODY_PROFILE.size() else 2)
+		count = mini(count, tokens.size() - idx)
+		var y := TOP_Y - row * ROW_H
+		var start_x := -COL_W * (count - 1) * 0.5
+		for k in range(count):
+			var token: Dictionary = tokens[idx]
+			var is_owner: bool = token.get("kind", "") == GameLogic.KIND_CREATURE \
+				and bool(token.get("is_owner", false))
+			var label := _word(token.get("text", ""),
+				54 if is_owner else 38, _sentiment_color(token), is_owner)
+			label.position = Vector3(start_x + k * COL_W, y, 0.0)
+			fig.add_child(label)
+			idx += 1
+		row += 1
 
 
-## Build one character as a Node2D "word pile" shaped like a figure.
-func _make_figure(tokens: Array, origin: Vector2, scale_factor: float) -> Node2D:
-	var fig := Node2D.new()
-	fig.position = origin
-	fig.scale = Vector2(scale_factor, scale_factor)
-
-	# Put the owner word at the head, then the rest in sentence order.
-	var ordered: Array = []
-	var owner: Dictionary = {}
-	for t in tokens:
-		if t.get("kind", "") == GameLogic.KIND_CREATURE and t.get("is_owner", false):
-			owner = t
-		else:
-			ordered.append(t)
-	if not owner.is_empty():
-		ordered.push_front(owner)
-
-	for i in range(ordered.size()):
-		var token: Dictionary = ordered[i]
-		var is_head := i == 0
-		var lbl := _word_label(token.get("text", ""),
-			26 if is_head else 18, _sentiment_color(token))
-		var slot: Vector2
-		if i < SKELETON.size():
-			slot = SKELETON[i]
-		else:
-			# Extra words heap around the belly with a little spread.
-			var k := i - SKELETON.size()
-			slot = Vector2(-30 + 30 * (k % 3), -20 + 22 * int(k / 3))
-		lbl.position = slot - lbl.size * 0.5
-		fig.add_child(lbl)
-	return fig
-
-
-## Scenery is also made of words. A "tree" stood on its end like a trunk.
+## Scenery is made of words too. "tree" stood on end like a trunk.
 func _add_scenery() -> void:
-	var tree := _word_label("tree", 40, Color(0.45, 0.70, 0.45))
-	tree.rotation = -PI / 2  # on its side -> reads as a vertical trunk
-	tree.position = Vector2(110, GROUND_Y - 6)
+	var tree := _word("tree", 64, Color(0.46, 0.72, 0.46), false)
+	tree.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	tree.double_sided = true
+	tree.rotation_degrees = Vector3(0, 0, 90)  # on its side -> a vertical trunk
+	tree.position = Vector3(-7.0, 1.6, -3.0)
 	add_child(tree)
 
-	var hill := _word_label("hill", 30, Color(0.34, 0.46, 0.36))
-	hill.position = Vector2(_view.x - 95, GROUND_Y - 52)
+	var hill := _word("hill", 52, Color(0.34, 0.46, 0.36), false)
+	hill.position = Vector3(7.0, 0.6, -4.0)
 	add_child(hill)
+
+
+func _add_caption(text: String) -> void:
+	var layer := CanvasLayer.new()
+	var l := Label.new()
+	l.text = text
+	l.position = Vector2(20, 16)
+	l.add_theme_font_size_override("font_size", 16)
+	l.add_theme_color_override("font_color", COLOR_FIXED)
+	layer.add_child(l)
+	add_child(layer)
+
+
+func _find(chars: Array, name: String) -> Dictionary:
+	for c in chars:
+		if (c as Dictionary).get("name", "") == name:
+			return c
+	return {}
