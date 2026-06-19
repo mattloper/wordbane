@@ -664,7 +664,7 @@
     {
       "name": "Knight",
       "role": "player",
-      "source": "The brave knight thrusts a mighty spear and lifts a sturdy shield.",
+      "source": "The brave knight thrusts a mighty spear and reads a glowing scroll.",
       "owner_method": "spacy:nsubj",
       "max_hp": 12,
       "item_order": [
@@ -717,7 +717,7 @@
           "kind": "fixed"
         },
         {
-          "text": "lifts",
+          "text": "reads",
           "kind": "fixed"
         },
         {
@@ -725,18 +725,18 @@
           "kind": "fixed"
         },
         {
-          "text": "sturdy",
+          "text": "glowing",
           "kind": "adjective",
           "sentiment": "neutral",
           "mult": 1.25,
           "attaches": "item:1"
         },
         {
-          "text": "shield",
+          "text": "scroll",
           "kind": "item",
           "sentiment": "neutral",
-          "item_type": "hp_defense",
-          "base": 2,
+          "item_type": "word_attack",
+          "base": 1,
           "item_index": 1
         }
       ]
@@ -824,7 +824,7 @@
     {
       "name": "Kitten",
       "role": "player",
-      "source": "The cozy kitten swings a trusty club and sips a sweet potion.",
+      "source": "The cozy kitten swings a trusty club and casts a soft spell.",
       "owner_method": "spacy:nsubj",
       "max_hp": 12,
       "item_order": [
@@ -877,7 +877,7 @@
           "kind": "fixed"
         },
         {
-          "text": "sips",
+          "text": "casts",
           "kind": "fixed"
         },
         {
@@ -885,17 +885,17 @@
           "kind": "fixed"
         },
         {
-          "text": "sweet",
+          "text": "soft",
           "kind": "adjective",
           "sentiment": "positive",
           "mult": 0.7,
           "attaches": "item:1"
         },
         {
-          "text": "potion",
+          "text": "spell",
           "kind": "item",
-          "sentiment": "positive",
-          "item_type": "hp_defense",
+          "sentiment": "neutral",
+          "item_type": "word_attack",
           "base": 2,
           "item_index": 1
         }

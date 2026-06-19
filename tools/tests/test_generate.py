@@ -116,6 +116,17 @@ def test_each_role_has_offensive_capability():
         assert types & set(lexicon.OFFENSIVE_TYPES), char["name"]
 
 
+def test_every_player_can_randomize():
+    # Every player needs a word-randomizer item so "click an enemy word to
+    # randomize it" is always an available action.
+    bank = generate.build_bank(use_spacy=False)
+    for char in bank["characters"]:
+        if char["role"] != "player":
+            continue
+        types = {i["item_type"] for i in _items(char)}
+        assert lexicon.WORD_ATTACK in types, char["name"]
+
+
 def test_write_bank_roundtrip(tmp_path):
     out = tmp_path / "word_bank.json"
     generate.write_bank(out, use_spacy=False)

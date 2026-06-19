@@ -155,10 +155,12 @@ CHARACTER_SENTENCES: list[dict] = [
      "text": "A savage ogre raises a brutal axe and grips a sturdy shield."},
     {"name": "Wolf", "role": "enemy",
      "text": "The vicious wolf bares a deadly fang and swings a jagged claw."},
+    # Each player carries a word-randomizer item so the "click an enemy word to
+    # randomize it" action is always available, plus one other item for variety.
     {"name": "Knight", "role": "player",
-     "text": "The brave knight thrusts a mighty spear and lifts a sturdy shield."},
+     "text": "The brave knight thrusts a mighty spear and reads a glowing scroll."},
     {"name": "Mage", "role": "player",
      "text": "A clever mage waves a glowing wand and wears a lucky amulet."},
     {"name": "Kitten", "role": "player",
-     "text": "The cozy kitten swings a trusty club and sips a sweet potion."},
+     "text": "The cozy kitten swings a trusty club and casts a soft spell."},
 ]
