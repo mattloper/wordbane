@@ -213,9 +213,35 @@ func _submit() -> void:
 	tok["sentiment"] = r.get("sentiment", "neutral")
 	_used.append(w)
 	_entry.text = ""
-	_msg.text = "✓ %s → %s  (%s, %s, was %s)" % [
-		target, w, r.get("direction", "?"), r.get("sentiment", "?"), was_sent]
+	var note := ""
+	# Disarming a noun neutralizes its adjective(s) — a multiplier with no
+	# weapon to sharpen is harmless.
+	if tok.get("kind", "") in [GameLogic.KIND_ITEM, GameLogic.KIND_CREATURE] \
+			and r.get("sentiment", "") != GameLogic.NEGATIVE:
+		var calmed := _neutralize_adjectives_of(tok)
+		if not calmed.is_empty():
+			note = "   (calmed: %s)" % ", ".join(calmed)
+	_msg.text = "✓ %s → %s  (%s, %s, was %s)%s" % [
+		target, w, r.get("direction", "?"), r.get("sentiment", "?"), was_sent, note]
 	_refresh()
+
+
+## Neutralize the adjectives attached to a just-disarmed noun. Returns their names.
+func _neutralize_adjectives_of(noun: Dictionary) -> Array:
+	var key := ""
+	if noun.get("kind", "") == GameLogic.KIND_ITEM:
+		key = "item:%d" % int(noun.get("item_index", -1))
+	elif noun.get("kind", "") == GameLogic.KIND_CREATURE:
+		key = "owner"
+	if key == "":
+		return []
+	var calmed: Array = []
+	for t in _enemy.tokens:
+		if t.get("kind", "") == GameLogic.KIND_ADJ and t.get("attaches", "") == key \
+				and t.get("sentiment", "") == GameLogic.NEGATIVE:
+			t["sentiment"] = GameLogic.NEUTRAL
+			calmed.append(t.get("text", ""))
+	return calmed
 
 
 func _sorted_letters(w: String) -> Array:
