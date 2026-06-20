@@ -1,62 +1,214 @@
-## World prototype (NOT the game yet) — 3D, with clickable words.
+## The 3D world — now an actual playable battle (in progress).
 ##
-## Each character is its *sentence*, rendered by the 2D rich-text engine into an
-## off-screen SubViewport and shown on a single quad in 3D (so layout/wrapping/
-## colour are free). Editable words are wrapped in [url] meta tags, and the quad
-## has an Area3D collider: a 3D click is mapped to the viewport's pixel and pushed
-## in as a synthetic mouse click, so RichTextLabel emits `meta_clicked`. Clicking
-## a word randomizes it (via GameLogic.reroll_token) to prove the loop end to end.
+## Each character is its *sentence* on a quad in a 3D field. The camera gently
+## sways for parallax; each card is re-oriented every frame to face the camera, so
+## its picking collider always matches what's drawn (no billboard needed).
 ##
-## Prototype simplification: the camera is static and each card is oriented once
-## to face it (no billboard), so the collider exactly matches what's drawn. Re-
-## enabling the orbiting camera will need the collider to track the billboard.
+## Turn rules (ported from the 2D scene, sharing GameLogic / CombatText / WordStyle):
+##   YOUR TURN  — click one of your item words. A word-attack item then lets you
+##                click which enemy word(s) to randomize; other items resolve at once.
+##   ENEMY TURN — it cycles through its items in order (shown in the telegraph).
+##   Win by HP->0 or pacifying the enemy; lose if your HP hits 0.
 ##
-## View it with:  godot --path game world.tscn  (then click the coloured words)
+## Still TODO (#3): move the HUD from a flat overlay onto the 3D cards.
+##
+## View it with:  godot --path game world.tscn
 extends Node3D
 
-const CARD_SIZE := Vector2i(440, 360)  # off-screen render resolution per character
+const BANK_PATH := "res://data/word_bank.json"
+
+const CARD_SIZE := Vector2i(440, 360)
 const CARD_FONT := 40
 const OWNER_FONT := 60
-const PIXEL_SIZE := 0.011             # world units per texture pixel (overall scale)
+const PIXEL_SIZE := 0.011
+const CAM_RADIUS := 12.0
+const CAM_HEIGHT := 1.9
+const CAM_SWAY := 0.30  # radians of gentle left/right orbit
+
+const ST_CHOOSE := "choose"
+const ST_TARGET := "target"
+const ST_BUSY := "busy"
+const ST_OVER := "over"
 
 var _rng := RandomNumberGenerator.new()
 var _pools: Dictionary = {}
+var _characters: Array = []
+
+var _player: Dictionary = {}
+var _enemy: Dictionary = {}
+var _state := ST_CHOOSE
+var _player_msg := ""
+var _pending_targets := 0
+var _pending_label := ""
+var _battle_id := 0
+var _time := 0.0
+
+var _cards: Dictionary = {}  # side -> {root: Node3D, sv: SubViewport, rtl: RichTextLabel}
 var _cam: Camera3D
-var _hint: Label
+var _banner: Label
+var _enemy_stats: Label
+var _telegraph: Label
+var _player_stats: Label
+var _log: Label
 
 
 func _ready() -> void:
 	_rng.randomize()
-	get_viewport().physics_object_picking = true  # needed for Area3D mouse picking
-
+	get_viewport().physics_object_picking = true
 	_build_environment()
 	_cam = Camera3D.new()
 	_cam.fov = 58
-	_cam.position = Vector3(0, 1.9, 12)
 	add_child(_cam)
 	_cam.current = true
-	_cam.look_at(Vector3(0, 1.9, 0), Vector3.UP)
 	_build_ground()
 	_add_scenery()
+	_build_hud()
 
-	var bank := GameLogic.load_bank("res://data/word_bank.json")
+	var bank := GameLogic.load_bank(BANK_PATH)
 	_pools = bank.get("pools", {})
-	var chars: Array = bank.get("characters", [])
-	var enemy := _find(chars, "Dragon")
-	var player := _find(chars, "Knight")
-	if not enemy.is_empty():
-		_add_character(enemy.tokens, Vector3(-3.4, 1.9, 0.0))
-	if not player.is_empty():
-		_add_character(player.tokens, Vector3(3.4, 1.9, 0.0))
-
-	_add_overlay()
+	_characters = bank.get("characters", [])
+	_update_camera()
+	_new_game()
 
 
-# --- characters: a clickable sentence on a quad ------------------------------
+func _process(delta: float) -> void:
+	_time += delta
+	_update_camera()
+	# Keep each card (and its collider) facing the camera.
+	for side in _cards:
+		var root: Node3D = _cards[side]["root"]
+		root.look_at(2.0 * root.global_position - _cam.global_position, Vector3.UP)
 
-## BBCode for a sentence: each word coloured by sentiment, owner bold/large, and
-## every editable word wrapped in a [url=<token index>] so it can be clicked.
-func _sentence_bbcode(tokens: Array) -> String:
+
+func _update_camera() -> void:
+	var a := sin(_time * 0.5) * CAM_SWAY
+	_cam.position = Vector3(sin(a) * CAM_RADIUS, CAM_HEIGHT, cos(a) * CAM_RADIUS)
+	_cam.look_at(Vector3(0, CAM_HEIGHT, 0), Vector3.UP)
+
+
+# --- battle flow -------------------------------------------------------------
+
+func _new_game() -> void:
+	_battle_id += 1
+	for side in _cards.keys():
+		(_cards[side]["root"] as Node3D).queue_free()
+	_cards.clear()
+
+	var enemy_t := GameLogic.pick_character(_characters, "enemy", _rng)
+	var player_t := GameLogic.pick_character(_characters, "player", _rng)
+	if enemy_t.is_empty() or player_t.is_empty():
+		_set_log("Word bank is missing player/enemy characters.")
+		return
+	_enemy = GameLogic.make_fighter(enemy_t)
+	_player = GameLogic.make_fighter(player_t)
+	_state = ST_CHOOSE
+	_player_msg = ""
+	_pending_targets = 0
+	_build_card("enemy", Vector3(-3.4, 1.9, 0.0))
+	_build_card("player", Vector3(3.4, 1.9, 0.0))
+	_set_log("Your turn — click one of your item words.")
+	_refresh()
+
+
+func _refresh() -> void:
+	if _cards.has("enemy"):
+		(_cards["enemy"]["rtl"] as RichTextLabel).text = _card_bbcode(_enemy, "enemy")
+	if _cards.has("player"):
+		(_cards["player"]["rtl"] as RichTextLabel).text = _card_bbcode(_player, "player")
+	_update_hud()
+
+
+func _on_card_meta(meta: Variant, side: String) -> void:
+	var s := str(meta)
+	if s.begins_with("item:") and side == "player" and _state == ST_CHOOSE:
+		_use_item(int(s.substr(5)))
+	elif s.begins_with("tok:") and side == "enemy" and _state == ST_TARGET:
+		_target_word(int(s.substr(4)))
+
+
+func _use_item(item_index: int) -> void:
+	var power := GameLogic.item_power(_player.tokens, item_index)
+	if power.get("type", "") == GameLogic.WORD_ATTACK:
+		_pending_targets = int(power.amount)
+		_pending_label = GameLogic.item_label(_player.tokens, item_index)
+		_state = ST_TARGET
+		_refresh()
+		_set_log("%s readies %s — click an enemy word to randomize it." % [
+			_player.name, _pending_label])
+		return
+	var res := GameLogic.apply_item(_player, _enemy, item_index, _pools, _rng)
+	_player_msg = CombatText.describe(_player.name, res, _enemy.name)
+	_finish_player_action()
+
+
+func _target_word(token_index: int) -> void:
+	var r := GameLogic.scramble_one(_enemy, token_index, _pools, _rng)
+	if not r.get("ok", false):
+		return
+	_pending_targets -= 1
+	var note: String = "blocked by %s's ward!" % _enemy.name if r.get("blocked", false) \
+		else "→ '%s'" % r.get("text", "")
+	_refresh()
+	if _check_end():
+		return
+	if _pending_targets <= 0 or GameLogic.editable_indices(_enemy.tokens).is_empty():
+		_player_msg = "%s used %s (%s)" % [_player.name, _pending_label, note]
+		_finish_player_action()
+	else:
+		_set_log("%s  Click %d more enemy word(s)." % [note, _pending_targets])
+
+
+func _finish_player_action() -> void:
+	var id := _battle_id
+	_set_log(_player_msg)
+	_state = ST_BUSY
+	_refresh()
+	if _check_end():
+		return
+	await get_tree().create_timer(0.55).timeout
+	if id != _battle_id:
+		return
+	_enemy_turn()
+
+
+func _enemy_turn() -> void:
+	if _state == ST_OVER:
+		return
+	var idx := GameLogic.next_item_index(_enemy)
+	var res := GameLogic.apply_item(_enemy, _player, idx, _pools, _rng)
+	GameLogic.advance_cycle(_enemy)
+	_set_log(_player_msg + "\n" + CombatText.describe(_enemy.name, res, _player.name))
+	if _check_end():
+		return
+	_state = ST_CHOOSE
+	_refresh()
+
+
+func _check_end() -> bool:
+	if int(_enemy.hp) <= 0:
+		_end("VICTORY — you defeated %s (HP 0)!" % _enemy.name)
+		return true
+	if GameLogic.is_pacified(_enemy.tokens):
+		_end("VICTORY — %s is pacified: no negative words left!" % _enemy.name)
+		return true
+	if int(_player.hp) <= 0:
+		_end("DEFEAT — %s knocked your HP to 0." % _player.name)
+		return true
+	return false
+
+
+func _end(msg: String) -> void:
+	_state = ST_OVER
+	_refresh()
+	_set_log(msg + "\nPress New Battle to play again.")
+
+
+# --- card construction / text ------------------------------------------------
+
+func _card_bbcode(fighter: Dictionary, side: String) -> String:
+	var tokens: Array = fighter.tokens
+	var items_clickable := side == "player" and _state == ST_CHOOSE
+	var words_clickable := side == "enemy" and _state == ST_TARGET
 	var parts: Array = []
 	for i in range(tokens.size()):
 		var token: Dictionary = tokens[i]
@@ -68,38 +220,36 @@ func _sentence_bbcode(tokens: Array) -> String:
 			styled = "[font_size=%d][b][color=#%s]%s[/color][/b][/font_size]" % [OWNER_FONT, hex, word]
 		else:
 			styled = "[color=#%s]%s[/color]" % [hex, word]
-		if kind in GameLogic.EDITABLE_KINDS:
-			styled = "[url=%d]%s[/url]" % [i, styled]
+		if items_clickable and kind == GameLogic.KIND_ITEM:
+			styled = "[url=item:%d]%s[/url]" % [int(token.get("item_index", -1)), styled]
+		elif words_clickable and kind in GameLogic.EDITABLE_KINDS:
+			styled = "[url=tok:%d]%s[/url]" % [i, styled]
 		parts.append(styled)
 	return "[center]" + " ".join(parts) + "[/center]"
 
 
-func _add_character(tokens: Array, pos: Vector3) -> void:
-	# Off-screen viewport renders the sentence as 2D rich text.
+func _build_card(side: String, pos: Vector3) -> void:
+	var root := Node3D.new()
+	root.position = pos
+	add_child(root)
+
 	var sv := SubViewport.new()
 	sv.size = CARD_SIZE
 	sv.transparent_bg = true
 	sv.render_target_update_mode = SubViewport.UPDATE_ALWAYS
-	add_child(sv)
+	root.add_child(sv)
 
 	var rtl := RichTextLabel.new()
 	rtl.bbcode_enabled = true
 	rtl.scroll_active = false
 	rtl.size = CARD_SIZE
 	rtl.add_theme_font_size_override("normal_font_size", CARD_FONT)
-	rtl.text = _sentence_bbcode(tokens)
-	rtl.meta_clicked.connect(_on_word_clicked.bind(rtl, tokens))
+	rtl.meta_clicked.connect(_on_card_meta.bind(side))
 	sv.add_child(rtl)
-
-	# A quad facing the (static) camera, textured by the viewport, plus a matching
-	# collider so we can pick words by raycast.
-	var root := Node3D.new()
-	root.position = pos
-	add_child(root)
-	root.look_at(2.0 * pos - _cam.global_position, Vector3.UP)  # +Z toward camera
 
 	var card := Sprite3D.new()
 	card.shaded = false
+	card.double_sided = true
 	card.texture = sv.get_texture()
 	card.pixel_size = PIXEL_SIZE
 	root.add_child(card)
@@ -114,6 +264,8 @@ func _add_character(tokens: Array, pos: Vector3) -> void:
 	area.add_child(cs)
 	area.input_event.connect(_on_card_input.bind(root, sv, Vector2(w, h)))
 	root.add_child(area)
+
+	_cards[side] = {"root": root, "sv": sv, "rtl": rtl}
 
 
 ## A 3D click on a card -> the viewport pixel under it -> a synthetic mouse click.
@@ -133,18 +285,7 @@ func _on_card_input(_camera: Node, event: InputEvent, event_position: Vector3,
 		sv.push_input(mb)
 
 
-## Fired when a [url] word is clicked: randomize that word and redraw the card.
-func _on_word_clicked(meta: Variant, rtl: RichTextLabel, tokens: Array) -> void:
-	var idx := int(str(meta))
-	if idx < 0 or idx >= tokens.size():
-		return
-	var before: String = tokens[idx].get("text", "")
-	GameLogic.reroll_token(tokens[idx], _pools, _rng)
-	rtl.text = _sentence_bbcode(tokens)
-	_set_hint("clicked '%s' → '%s'" % [before, tokens[idx].get("text", "")])
-
-
-# --- scenery / environment ---------------------------------------------------
+# --- scenery / HUD -----------------------------------------------------------
 
 func _build_environment() -> void:
 	var we := WorldEnvironment.new()
@@ -167,52 +308,89 @@ func _build_ground() -> void:
 	add_child(mi)
 
 
-func _word(text: String, font_size: int, color: Color) -> Label3D:
-	var l := Label3D.new()
-	l.text = text
-	l.font_size = font_size
-	l.pixel_size = 0.012
-	l.modulate = color
-	l.double_sided = true
-	return l
-
-
 func _add_scenery() -> void:
-	var tree := _word("tree", 64, Color(0.46, 0.72, 0.46))
-	tree.rotation_degrees = Vector3(0, 0, 90)  # on its side -> a vertical trunk
+	var tree := Label3D.new()
+	tree.text = "tree"
+	tree.font_size = 64
+	tree.modulate = Color(0.46, 0.72, 0.46)
+	tree.double_sided = true
+	tree.rotation_degrees = Vector3(0, 0, 90)
 	tree.position = Vector3(-7.0, 1.6, -3.0)
 	add_child(tree)
 
-	var hill := _word("hill", 52, Color(0.34, 0.46, 0.36))
-	hill.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	hill.position = Vector3(7.0, 0.6, -4.0)
-	add_child(hill)
 
-
-func _add_overlay() -> void:
+func _build_hud() -> void:
 	var layer := CanvasLayer.new()
-	var caption := Label.new()
-	caption.text = "a place made of words — click a coloured word to randomize it"
-	caption.position = Vector2(20, 16)
-	caption.add_theme_font_size_override("font_size", 16)
-	caption.add_theme_color_override("font_color", WordStyle.FIXED)
-	layer.add_child(caption)
-
-	_hint = Label.new()
-	_hint.position = Vector2(20, 40)
-	_hint.add_theme_font_size_override("font_size", 16)
-	_hint.add_theme_color_override("font_color", WordStyle.NEUTRAL)
-	layer.add_child(_hint)
 	add_child(layer)
+	_banner = _hud_label(layer, Vector2(0, 14), 22, 900, true)
+	_enemy_stats = _hud_label(layer, Vector2(20, 48), 16, 0, false)
+	_telegraph = _hud_label(layer, Vector2(20, 72), 14, 860, false)
+	_log = _hud_label(layer, Vector2(20, 590), 15, 860, false)
+	_player_stats = _hud_label(layer, Vector2(20, 670), 16, 0, false)
+
+	var restart := Button.new()
+	restart.text = "New Battle"
+	restart.position = Vector2(770, 12)
+	restart.pressed.connect(_new_game)
+	layer.add_child(restart)
 
 
-func _set_hint(text: String) -> void:
-	if _hint:
-		_hint.text = text
+## width 0 = single line (no wrap); width > 0 = wrap at that width.
+func _hud_label(layer: CanvasLayer, pos: Vector2, font: int, width: int, centered: bool) -> Label:
+	var l := Label.new()
+	l.position = pos
+	l.add_theme_font_size_override("font_size", font)
+	if width > 0:
+		l.size = Vector2(width, 50)
+		l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	else:
+		l.autowrap_mode = TextServer.AUTOWRAP_OFF
+	if centered:
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	layer.add_child(l)
+	return l
 
 
-func _find(chars: Array, name: String) -> Dictionary:
-	for c in chars:
-		if (c as Dictionary).get("name", "") == name:
-			return c
-	return {}
+func _update_hud() -> void:
+	_banner.text = _banner_text()
+	_banner.add_theme_color_override("font_color", _banner_color())
+	_enemy_stats.text = "ENEMY — %s    HP %d/%d    threats: %d    wards: %d" % [
+		_enemy.name, _enemy.hp, _enemy.max_hp,
+		GameLogic.count_negative(_enemy.tokens), _enemy.wards]
+	_telegraph.text = _telegraph_text()
+	_player_stats.text = "YOU — %s    HP %d/%d    wards: %d" % [
+		_player.name, _player.hp, _player.max_hp, _player.wards]
+
+
+func _banner_text() -> String:
+	match _state:
+		ST_CHOOSE: return "● YOUR TURN — click an item word"
+		ST_TARGET: return "◎ PICK A TARGET — click %d enemy word(s)" % _pending_targets
+		ST_BUSY: return "ENEMY TURN…"
+		ST_OVER: return "GAME OVER"
+	return ""
+
+
+func _banner_color() -> Color:
+	match _state:
+		ST_CHOOSE: return WordStyle.POSITIVE
+		ST_TARGET: return Color(1.0, 0.85, 0.3)
+		ST_BUSY: return WordStyle.NEGATIVE
+		_: return WordStyle.NEUTRAL
+
+
+func _telegraph_text() -> String:
+	var order: Array = _enemy.item_order
+	if order.is_empty():
+		return ""
+	var parts: Array = []
+	for i in range(order.size()):
+		var item_index: int = order[i]
+		var marker := "▸ " if i == int(_enemy.cycle_index) else "  "
+		parts.append(marker + CombatText.item_effect(_enemy.tokens, item_index))
+	return "Enemy plan (loops):   " + "      ".join(parts)
+
+
+func _set_log(text: String) -> void:
+	if _log:
+		_log.text = text

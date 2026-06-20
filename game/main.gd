@@ -285,7 +285,7 @@ func _token_control(token: Dictionary, idx: int, tokens: Array, mode: String, fo
 		btn.add_theme_color_override("font_color", color)
 		btn.add_theme_color_override("font_hover_color", Color.WHITE)
 		if mode == "items":
-			btn.tooltip_text = _item_effect_text(tokens, int(token.get("item_index", -1)))
+			btn.tooltip_text = CombatText.item_effect(tokens, int(token.get("item_index", -1)))
 		btn.pressed.connect(cb)
 		return btn
 
@@ -311,7 +311,7 @@ func _on_player_item_pressed(item_index: int) -> void:
 		return
 	# Non-targeted items (HP attack, defenses) resolve immediately.
 	var res := GameLogic.apply_item(_player, _enemy, item_index, _pools, _rng)
-	_player_msg = _describe(_player.name, res, _enemy.name)
+	_player_msg = CombatText.describe(_player.name, res, _enemy.name)
 	await _finish_player_action()
 
 
@@ -354,7 +354,7 @@ func _enemy_turn() -> void:
 	var idx := GameLogic.next_item_index(_enemy)
 	var res := GameLogic.apply_item(_enemy, _player, idx, _pools, _rng)
 	GameLogic.advance_cycle(_enemy)
-	_status.text = _player_msg + "\n" + _describe(_enemy.name, res, _player.name)
+	_status.text = _player_msg + "\n" + CombatText.describe(_enemy.name, res, _player.name)
 	if _check_end():
 		return
 	_state = ST_CHOOSE
@@ -382,39 +382,6 @@ func _end(msg: String) -> void:
 
 # --- text helpers ------------------------------------------------------------
 
-func _describe(actor: String, res: Dictionary, target: String) -> String:
-	if not res.get("ok", false):
-		return ""
-	match res.type:
-		GameLogic.HP_ATTACK:
-			return "%s used %s — %d damage to %s." % [actor, res.item, res.dmg, target]
-		GameLogic.WORD_ATTACK:
-			var s := "%s used %s — scrambled %d of %s's words" % [
-				actor, res.item, res.scrambled, target]
-			if int(res.blocked) > 0:
-				s += " (%d blocked by wards)" % res.blocked
-			return s + "."
-		GameLogic.HP_DEFENSE:
-			return "%s used %s — healed %d HP." % [actor, res.item, res.healed]
-		GameLogic.WORD_DEFENSE:
-			return "%s used %s — raised %d ward(s)." % [actor, res.item, res.wards]
-	return ""
-
-
-func _item_effect_text(tokens: Array, item_index: int) -> String:
-	var p := GameLogic.item_power(tokens, item_index)
-	if p.is_empty():
-		return ""
-	var verb := ""
-	match p.type:
-		GameLogic.HP_ATTACK: verb = "HP -%d" % p.amount
-		GameLogic.WORD_ATTACK: verb = "scramble %d" % p.amount
-		GameLogic.HP_DEFENSE: verb = "heal +%d" % p.amount
-		GameLogic.WORD_DEFENSE: verb = "ward %d" % p.amount
-	return "%s  →  %s  (base %d x%.2f)" % [
-		GameLogic.item_label(tokens, item_index), verb, p.base, p.mult]
-
-
 func _telegraph_text() -> String:
 	var order: Array = _enemy.item_order
 	if order.is_empty():
@@ -423,12 +390,12 @@ func _telegraph_text() -> String:
 	for i in range(order.size()):
 		var item_index: int = order[i]
 		var marker := "▸ " if i == int(_enemy.cycle_index) else "  "
-		parts.append(marker + _item_effect_text(_enemy.tokens, item_index))
+		parts.append(marker + CombatText.item_effect(_enemy.tokens, item_index))
 	return "Enemy plan (loops):   " + "      ".join(parts)
 
 
 func _player_items_text() -> String:
 	var parts: Array = []
 	for item_index in _player.item_order:
-		parts.append(_item_effect_text(_player.tokens, item_index))
+		parts.append(CombatText.item_effect(_player.tokens, item_index))
 	return "Your items:   " + "      ".join(parts)
