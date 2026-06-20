@@ -134,15 +134,49 @@ func _initialize() -> void:
 	var grow := wl.validate("airflow", "wolf", "noun", [])
 	_check(grow.get("ok", false) and grow.get("direction", "") == "grow",
 		"grow wolf->airflow is valid (noun->noun)")
-	# POS mismatch is rejected (knife->fine would be noun->adjective).
-	var posbad := wl.validate("fine", "knife", "noun", [])
-	_check(not posbad.get("ok", false), "POS mismatch knife->fine (noun->adj) is rejected")
+	# POS mismatch is rejected: 'fin' is a noun, not an adjective.
+	var posbad := wl.validate("fin", "knife", "adjective", [])
+	_check(not posbad.get("ok", false), "POS mismatch (fin as adjective) is rejected")
+	# Multi-POS now accepted: 'fan' is tagged noun+verb, valid for a noun slot.
+	var multi := wl.validate("fan", "fang", "noun", [])
+	_check(multi.get("ok", false), "multi-POS 'fan' accepted for a noun slot (fang->fan)")
 	# Reuse is rejected.
 	var reuse := wl.validate("fin", "knife", "noun", ["fin"])
 	_check(not reuse.get("ok", false), "reused word is rejected")
 	# Substitution (not pure add/remove) is rejected.
 	var subst := wl.validate("wife", "knife", "noun", [])
 	_check(not subst.get("ok", false), "substitution (knife->wife) is rejected")
+
+	# --- LadderBattle: disarm, enemy damage, win ---
+	var lb := LadderBattle.new()
+	lb.ladder = wl
+	var foe := {"name": "Test", "tokens": [
+		{"text": "A", "kind": GameLogic.KIND_FIXED},
+		{"text": "knife", "kind": GameLogic.KIND_ITEM, "sentiment": GameLogic.NEGATIVE,
+			"item_type": "hp_attack", "base": 2, "item_index": 0},   # ⚔2
+		{"text": "axe", "kind": GameLogic.KIND_ITEM, "sentiment": GameLogic.NEGATIVE,
+			"item_type": "hp_attack", "base": 3, "item_index": 1},   # ⚔3
+	]}
+	lb.begin(foe, 10, 10)
+	_check(lb.incoming_damage() == 5, "incoming damage sums both weapons (2+3)")
+	var d1 := lb.try_move(2, "axle")  # disarm axe; surviving knife hits for 2
+	_check(d1.get("ok", false) and lb.player_hp == 8, "disarm axe, take knife's 2 damage")
+	var d2 := lb.try_move(1, "fin")   # disarm knife; none left -> win, no damage
+	_check(d2.get("won", false) and lb.state == LadderBattle.STATE_WON, "disarm all weapons -> win")
+
+	# --- Gauntlet: generates escalating, distinct-weapon enemies ---
+	var g := Gauntlet.new()
+	g.setup(bank)
+	var e := g.generate(3)
+	var weps: Array = []
+	for t in e.tokens:
+		if t.get("kind", "") == GameLogic.KIND_ITEM:
+			weps.append(t.get("text", ""))
+	_check(weps.size() >= 2, "gauntlet enemy has multiple weapons")
+	var uniq := {}
+	for w in weps:
+		uniq[w] = true
+	_check(uniq.size() == weps.size(), "gauntlet weapons are distinct (no duplicates)")
 
 	if _failures == 0:
 		print("ALL PASS")

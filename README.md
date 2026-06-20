@@ -102,14 +102,46 @@ wordplay/
     ├── project.godot
     ├── core/                    # view-agnostic logic (class_name globals)
     │   ├── game_logic.gd        #   GameLogic — pure combat rules
-    │   ├── battle.gd            #   Battle — the turn-flow state machine (signals)
-    │   ├── combat_text.gd       #   CombatText — shared phrasing (logs, telegraph)
-    │   └── word_style.gd        #   WordStyle — shared word/phase colours
-    ├── main.tscn / main.gd      # 2D view: "being" trees + HP bars
-    ├── world.tscn / world.gd    # 3D view: sentences as cards in a field
+    │   ├── battle.gd            #   Battle — item-combat turn machine (older mode)
+    │   ├── word_ladder.gd       #   WordLadder — typed-word transform validator
+    │   ├── ladder_battle.gd     #   LadderBattle — one disarm-the-weapons fight
+    │   ├── gauntlet.gd          #   Gauntlet — escalating enemy generator
+    │   ├── combat_text.gd       #   CombatText — shared phrasing
+    │   └── word_style.gd        #   WordStyle — shared word colours
+    ├── ladder.tscn / ladder.gd  # ★ Letter-Ladder Gauntlet — the current game
+    ├── play.gd                  # headless CLI to play the gauntlet
+    ├── main.tscn / main.gd      # 2D item-combat view (older mode)
+    ├── world.tscn / world.gd    # 3D item-combat view (older mode)
     ├── selftest.gd              # headless smoke test
-    └── data/word_bank.json      # generated; consumed at runtime
+    └── data/
+        ├── word_bank.json       # characters + word pools (generated)
+        └── dictionary.json      # 50k words -> {pos, sentiment} (generated)
 ```
+
+## The game: Letter-Ladder Gauntlet
+
+`godot --path game ladder.tscn` (or play it headless via `play.gd`, below).
+
+Descend a gauntlet of escalating enemies. Each enemy's **weapons are its red
+nouns**; every turn the survivors damage you (`base × adjective multiplier`). On
+your turn, click a weapon and **type a real word made from its letters** — add OR
+remove letters (a *word ladder*), same part of speech — to disarm it. Disarm them
+all to descend; HP carries between fights with a small heal per victory. You lose
+when HP hits 0, and your score is the depth reached.
+
+Why it takes thought: you must (a) find a valid word (vocabulary), (b) disarm the
+*biggest* threats first to minimise incoming damage (ordering), and (c) never
+reuse a word, so variety runs down. Short weapons (`hex`, `axe`) have no shorter
+word, forcing you to *grow* them — the hardest puzzles.
+
+### Play it from the command line (`play.gd`)
+
+```bash
+godot --headless --path game --script res://play.gd -- new
+godot --headless --path game --script res://play.gd -- move <index> <word>
+godot --headless --path game --script res://play.gd -- pass
+```
+Run state persists between calls, so each invocation is one move.
 
 Both views are thin: they render a `Battle` and forward clicks. The shared
 `core/` classes hold all rules, flow, and presentation strings, so the 2D and 3D

@@ -40,15 +40,20 @@ _DEFAULT_OUT = (
 )
 
 
-def _primary_pos(synsets) -> str:
-    """The word's dominant part of speech = the POS with the most synsets."""
-    counts = Counter(_WN_POS.get(s.pos(), POS_OTHER) for s in synsets)
-    return counts.most_common(1)[0][0]
+def _all_pos(synsets) -> list[str]:
+    """Every game-POS the word can be (e.g. 'fan' is both noun and verb).
+
+    Stored as a list so the game accepts a word in any of its valid roles —
+    tagging a single 'primary' POS wrongly rejects common words.
+    """
+    found = {_WN_POS.get(s.pos(), POS_OTHER) for s in synsets}
+    order = [POS_NOUN, POS_ADJ, POS_VERB, POS_OTHER]
+    return [p for p in order if p in found]
 
 
-def _sentiment(word: str, wn_pos: str, swn) -> str:
-    """Average SentiWordNet pos/neg over the word's senses, then threshold."""
-    senses = list(swn.senti_synsets(word, wn_pos))
+def _sentiment(word: str, swn) -> str:
+    """Average SentiWordNet pos/neg over ALL the word's senses, then threshold."""
+    senses = list(swn.senti_synsets(word))
     if not senses:
         return lexicon.NEUTRAL
     pos = sum(s.pos_score() for s in senses) / len(senses)
@@ -71,7 +76,7 @@ def _curated_overrides() -> dict:
     for word, meta in lexicon.word_index().items():
         pos = kind_to_pos.get(meta["kind"])
         if pos:
-            out[word] = {"pos": pos, "sentiment": meta["sentiment"]}
+            out[word] = {"pos": [pos], "sentiment": meta["sentiment"]}
     return out
 
 
@@ -80,8 +85,6 @@ def build_dictionary() -> dict:
     from nltk.corpus import wordnet as wn
 
     entries: dict = {}
-    # The WordNet POS char per game-POS, for the sentiment lookup.
-    pos_back = {POS_NOUN: "n", POS_ADJ: "a", POS_VERB: "v", POS_OTHER: "r"}
     for lemma in wn.all_lemma_names():
         if not lemma.isalpha() or not lemma.islower():
             continue
@@ -90,9 +93,10 @@ def build_dictionary() -> dict:
         synsets = wn.synsets(lemma)
         if not synsets:
             continue
-        pos = _primary_pos(synsets)
-        sentiment = _sentiment(lemma, pos_back[pos], swn)
-        entries[lemma] = {"pos": pos, "sentiment": sentiment}
+        entries[lemma] = {
+            "pos": _all_pos(synsets),
+            "sentiment": _sentiment(lemma, swn),
+        }
 
     entries.update(_curated_overrides())  # curated tags win
     return entries
@@ -119,7 +123,7 @@ def main(argv: list[str] | None = None) -> int:
 
     payload = write_dictionary(args.out)
     words = payload["words"]
-    by_pos = Counter(v["pos"] for v in words.values())
+    by_pos = Counter(p for v in words.values() for p in v["pos"])
     by_sent = Counter(v["sentiment"] for v in words.values())
     size_kb = args.out.stat().st_size / 1024
     print(f"Wrote {args.out}  ({payload['count']} words, {size_kb:.0f} KB)")

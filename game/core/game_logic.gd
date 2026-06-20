@@ -52,6 +52,15 @@ static func load_bank(path: String) -> Dictionary:
 	return parsed
 
 
+## The part of speech a replacement word must have to fill a token's role,
+## so the sentence stays grammatical. "" for non-word tokens.
+static func pos_for_kind(kind: String) -> String:
+	match kind:
+		KIND_ITEM, KIND_CREATURE: return "noun"
+		KIND_ADJ: return "adjective"
+		_: return ""
+
+
 static func clone_tokens(tokens: Array) -> Array:
 	var out: Array = []
 	for t in tokens:

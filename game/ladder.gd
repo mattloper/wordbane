@@ -1,72 +1,186 @@
-## Letter-ladder prototype (2D).
+## Letter-Ladder Gauntlet (2D) — the playable game.
 ##
-## Proves the core idea: disarm an enemy by rewriting its weapon words with word
-## ladders. Click a red NOUN, then type a real word made from its letters — add or
-## remove letters (direction auto-detected), same part of speech (noun->noun). The
-## word is replaced and re-tagged; disarm every negative noun to win. Adjectives
-## are multipliers (clickable adj->adj, but harmless once their noun is gone), so
-## the goal is the nouns. No word may be reused.
+## Descend a gauntlet of escalating enemies. Each enemy's weapons are its red
+## nouns; each turn the survivors damage you. On your turn, click a weapon and type
+## a real word made from its letters (add OR remove letters, same part of speech)
+## to disarm it. Disarm them all to descend; your HP carries between fights (small
+## heal each victory). Lose when HP hits 0 — your score is the depth you reached.
 ##
-## This is a focused slice (disarm only — no HP/turns yet) to test the feel.
+## All rules live in LadderBattle + Gauntlet + WordLadder; this is just the view.
 ## Run with:  godot --path game ladder.tscn
 extends Control
 
 const BANK_PATH := "res://data/word_bank.json"
 const DICT_PATH := "res://data/dictionary.json"
+const START_HP := 24
+const HEAL := 6
 
-var _rng := RandomNumberGenerator.new()
 var _ladder: WordLadder
-var _characters: Array = []
-var _enemy: Dictionary = {}
-var _selected := -1            # token index currently being transformed
-var _used: Array = []          # words spent this battle (no reuse)
-var _won := false
-
-# Token kind -> required part of speech for a transform (keeps the sentence grammatical).
-const KIND_POS := {
-	GameLogic.KIND_ITEM: "noun",
-	GameLogic.KIND_CREATURE: "noun",
-	GameLogic.KIND_ADJ: "adjective",
-}
+var _gauntlet: Gauntlet
+var _battle: LadderBattle
+var _hp := START_HP
+var _depth := 1
+var _selected := -1
+var _over := false
+var _log_lines: Array = []
 
 # UI.
-var _header: Label
+var _title: Label
+var _hpbar: ProgressBar
 var _row: HFlowContainer
+var _incoming: Label
 var _selinfo: Label
 var _entry: LineEdit
-var _msg: Label
-var _used_label: Label
+var _log: Label
 
 
 func _ready() -> void:
-	_rng.randomize()
 	_ladder = WordLadder.load_from(DICT_PATH)
-	var bank := GameLogic.load_bank(BANK_PATH)
-	_characters = bank.get("characters", [])
+	_gauntlet = Gauntlet.new()
+	_gauntlet.setup(GameLogic.load_bank(BANK_PATH))
+	_battle = LadderBattle.new()
+	_battle.ladder = _ladder
 	_build_ui()
-	_new_battle()
+	_start_run()
 
 
-# --- UI ----------------------------------------------------------------------
+# --- run / battle flow -------------------------------------------------------
+
+func _start_run() -> void:
+	_hp = START_HP
+	_depth = 1
+	_over = false
+	_log_lines = []
+	_start_enemy()
+	_log_msg("A foe blocks your path. Disarm its weapons!")
+
+
+func _start_enemy() -> void:
+	_selected = -1
+	_battle.begin(_gauntlet.generate(_depth), _hp, START_HP)
+	_refresh()
+
+
+func _on_disarm_pressed() -> void:
+	if _over or _selected < 0:
+		_selinfo.text = "Click a red weapon first, then type a word."
+		return
+	var res := _battle.try_move(_selected, _entry.text)
+	if not res.get("ok", false):
+		_selinfo.text = "✗ " + str(res.get("reason", "invalid"))
+		return
+	_entry.text = ""
+	var calm := ("  (calmed %s)" % ", ".join(res.calmed)) if not res.calmed.is_empty() else ""
+	_log_msg("You: %s → %s [%s]%s" % [res.target, res.word, res.direction, calm])
+	if int(res.damage) > 0:
+		_log_msg("  ↳ enemy strikes for %d" % res.damage)
+
+	if res.get("won", false):
+		_hp = mini(START_HP, _battle.player_hp + HEAL)
+		_depth += 1
+		_log_msg("✅ Disarmed! +%d HP. Descending to depth %d…" % [HEAL, _depth])
+		_start_enemy()
+		return
+	_hp = _battle.player_hp
+	if res.get("lost", false):
+		_over = true
+		_log_msg("💀 You fell at depth %d. Score: %d enemies cleared." % [_depth, _depth - 1])
+	_refresh()
+
+
+func _select(token_index: int) -> void:
+	if _over:
+		return
+	_selected = token_index
+	_entry.grab_focus()
+	_refresh()
+
+
+# --- rendering ---------------------------------------------------------------
+
+func _refresh() -> void:
+	_title.text = "LETTER-LADDER GAUNTLET    —    Depth %d" % _depth
+	_hpbar.max_value = START_HP
+	_hpbar.value = _hp
+	_hpbar.modulate = Color(0.35, 0.75, 0.4) if _hp > START_HP / 3 else Color(0.9, 0.35, 0.35)
+
+	_render_sentence()
+	_incoming.text = "" if _over else "If you stall, you take %d damage next turn." % _battle.incoming_damage()
+	if _over:
+		_selinfo.text = "GAME OVER — press New Run."
+	elif _selected >= 0:
+		var tok: Dictionary = _battle.enemy.tokens[_selected]
+		_selinfo.text = "Disarming: %s   (letters: %s)   → type a noun (add or remove letters)" % [
+			tok.get("text", ""), " ".join(_letters(tok.get("text", "")))]
+	else:
+		_selinfo.text = "Click a red weapon (noun) to target it."
+	_log.text = "\n".join(_log_lines)
+
+
+func _render_sentence() -> void:
+	for c in _row.get_children():
+		c.queue_free()
+	var tokens: Array = _battle.enemy.tokens
+	var weapons := _battle.weapon_indices()
+	for i in range(tokens.size()):
+		var token: Dictionary = tokens[i]
+		if i in weapons and not _over:
+			var dmg := _battle.weapon_damage(i)
+			var btn := Button.new()
+			btn.text = "%s ⚔%d" % [token.get("text", ""), dmg]
+			btn.add_theme_font_size_override("font_size", 22)
+			btn.add_theme_color_override("font_color",
+				Color(1.0, 0.9, 0.3) if i == _selected else WordStyle.NEGATIVE)
+			btn.pressed.connect(_select.bind(i))
+			_row.add_child(btn)
+		else:
+			var lbl := Label.new()
+			lbl.text = token.get("text", "")
+			lbl.add_theme_font_size_override("font_size", 22)
+			lbl.add_theme_color_override("font_color", WordStyle.color_for(token))
+			_row.add_child(lbl)
+
+
+func _log_msg(text: String) -> void:
+	_log_lines.append(text)
+	if _log_lines.size() > 7:
+		_log_lines.pop_front()
+	if _log:
+		_log.text = "\n".join(_log_lines)
+
+
+func _letters(w: String) -> Array:
+	var chars: Array = []
+	for ch in w.to_lower():
+		chars.append(ch)
+	chars.sort()
+	return chars
+
+
+# --- UI construction ---------------------------------------------------------
 
 func _build_ui() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for s in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + s, 28)
+		margin.add_theme_constant_override("margin_" + s, 26)
 	add_child(margin)
 
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 14)
+	col.add_theme_constant_override("separation", 12)
 	margin.add_child(col)
 
-	var title := _label("LETTER-LADDER — pacify the enemy (prototype)", 24)
-	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(title)
+	_title = _label("", 24)
+	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	col.add_child(_title)
 
-	_header = _label("", 19)
-	col.add_child(_header)
+	_hpbar = ProgressBar.new()
+	_hpbar.show_percentage = false
+	_hpbar.custom_minimum_size = Vector2(0, 20)
+	col.add_child(_hpbar)
+
+	col.add_child(HSeparator.new())
 
 	_row = HFlowContainer.new()
 	_row.add_theme_constant_override("h_separation", 8)
@@ -79,35 +193,37 @@ func _build_ui() -> void:
 	panel.add_child(inner)
 	col.add_child(panel)
 
-	_selinfo = _label("Click an enemy word to select it.", 16)
+	_incoming = _label("", 16)
+	_incoming.add_theme_color_override("font_color", Color(0.95, 0.6, 0.4))
+	col.add_child(_incoming)
+
+	_selinfo = _label("", 16)
 	col.add_child(_selinfo)
 
-	# Entry row (no shrink/grow toggle — either direction is auto-detected).
 	var controls := HBoxContainer.new()
 	controls.add_theme_constant_override("separation", 10)
 	_entry = LineEdit.new()
 	_entry.placeholder_text = "type a word…"
-	_entry.custom_minimum_size = Vector2(260, 0)
-	_entry.text_submitted.connect(func(_t): _submit())
+	_entry.custom_minimum_size = Vector2(280, 0)
+	_entry.text_submitted.connect(func(_t): _on_disarm_pressed())
 	controls.add_child(_entry)
 	var go := Button.new()
-	go.text = "Transform"
-	go.pressed.connect(_submit)
+	go.text = "Disarm"
+	go.pressed.connect(_on_disarm_pressed)
 	controls.add_child(go)
 	col.add_child(controls)
 
-	_msg = _label("", 17)
-	_msg.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_msg.custom_minimum_size = Vector2(0, 48)
-	col.add_child(_msg)
+	col.add_child(HSeparator.new())
 
-	_used_label = _label("", 14)
-	_used_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(_used_label)
+	_log = _label("", 15)
+	_log.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_log.custom_minimum_size = Vector2(0, 150)
+	_log.vertical_alignment = VERTICAL_ALIGNMENT_TOP
+	col.add_child(_log)
 
 	var restart := Button.new()
-	restart.text = "New Enemy"
-	restart.pressed.connect(_new_battle)
+	restart.text = "New Run"
+	restart.pressed.connect(_start_run)
 	var center := CenterContainer.new()
 	center.add_child(restart)
 	col.add_child(center)
@@ -118,135 +234,3 @@ func _label(text: String, size: int) -> Label:
 	l.text = text
 	l.add_theme_font_size_override("font_size", size)
 	return l
-
-
-# --- battle ------------------------------------------------------------------
-
-func _new_battle() -> void:
-	var template := GameLogic.pick_character(_characters, "enemy", _rng)
-	_enemy = GameLogic.make_fighter(template)
-	_selected = -1
-	_used = []
-	_won = false
-	_msg.text = ""
-	_entry.text = ""
-	_refresh()
-
-
-func _refresh() -> void:
-	var threats := _negative_nouns()
-	_header.text = "ENEMY — %s    weapons left: %d   (disarm the red nouns)" % [
-		_enemy.name, threats]
-	_render_words()
-	if _selected >= 0:
-		var tok: Dictionary = _enemy.tokens[_selected]
-		var w: String = tok.get("text", "")
-		var pos: String = KIND_POS.get(tok.get("kind", ""), "?")
-		_selinfo.text = "Selected: %s   (letters: %s)   → type a %s (add or remove letters)" % [
-			w, " ".join(_sorted_letters(w)), pos]
-	else:
-		_selinfo.text = "Click a red noun to select it."
-	_used_label.text = "Used words: " + (", ".join(_used) if not _used.is_empty() else "—")
-	if threats == 0 and not _won:
-		_won = true
-		_msg.text = "✅ DISARMED — %s has no weapons left! (New Enemy to play again)" % _enemy.name
-
-
-## Negative noun-kind words (owner + items) are the weapons to disarm.
-func _negative_nouns() -> int:
-	var n := 0
-	for t in _enemy.tokens:
-		if t.get("kind", "") in [GameLogic.KIND_ITEM, GameLogic.KIND_CREATURE] \
-				and t.get("sentiment", "") == GameLogic.NEGATIVE:
-			n += 1
-	return n
-
-
-func _render_words() -> void:
-	for c in _row.get_children():
-		c.queue_free()
-	var tokens: Array = _enemy.tokens
-	for i in range(tokens.size()):
-		var token: Dictionary = tokens[i]
-		var color := WordStyle.color_for(token)
-		if token.get("kind", "") in GameLogic.EDITABLE_KINDS:
-			var btn := Button.new()
-			btn.text = token.get("text", "")
-			btn.add_theme_font_size_override("font_size", 22)
-			btn.add_theme_color_override("font_color", color)
-			if i == _selected:
-				btn.add_theme_color_override("font_color", Color(1.0, 0.9, 0.3))
-			btn.pressed.connect(_select.bind(i))
-			_row.add_child(btn)
-		else:
-			var lbl := _label(token.get("text", ""), 22)
-			lbl.add_theme_color_override("font_color", color)
-			_row.add_child(lbl)
-
-
-func _select(token_index: int) -> void:
-	if _won:
-		return
-	_selected = token_index
-	_msg.text = ""
-	_entry.grab_focus()
-	_refresh()
-
-
-func _submit() -> void:
-	if _won:
-		return
-	if _selected < 0:
-		_msg.text = "Pick a word first."
-		return
-	var tok: Dictionary = _enemy.tokens[_selected]
-	var target: String = tok.get("text", "")
-	var required_pos: String = KIND_POS.get(tok.get("kind", ""), "")
-	var r := _ladder.validate(_entry.text, target, required_pos, _used)
-	if not r.get("ok", false):
-		_msg.text = "✗ " + str(r.get("reason", "invalid"))
-		return
-	# Apply: rewrite the word in place, re-tag its sentiment.
-	var w := _entry.text.strip_edges().to_lower()
-	var was_sent: String = tok.get("sentiment", "")
-	tok["text"] = w
-	tok["sentiment"] = r.get("sentiment", "neutral")
-	_used.append(w)
-	_entry.text = ""
-	var note := ""
-	# Disarming a noun neutralizes its adjective(s) — a multiplier with no
-	# weapon to sharpen is harmless.
-	if tok.get("kind", "") in [GameLogic.KIND_ITEM, GameLogic.KIND_CREATURE] \
-			and r.get("sentiment", "") != GameLogic.NEGATIVE:
-		var calmed := _neutralize_adjectives_of(tok)
-		if not calmed.is_empty():
-			note = "   (calmed: %s)" % ", ".join(calmed)
-	_msg.text = "✓ %s → %s  (%s, %s, was %s)%s" % [
-		target, w, r.get("direction", "?"), r.get("sentiment", "?"), was_sent, note]
-	_refresh()
-
-
-## Neutralize the adjectives attached to a just-disarmed noun. Returns their names.
-func _neutralize_adjectives_of(noun: Dictionary) -> Array:
-	var key := ""
-	if noun.get("kind", "") == GameLogic.KIND_ITEM:
-		key = "item:%d" % int(noun.get("item_index", -1))
-	elif noun.get("kind", "") == GameLogic.KIND_CREATURE:
-		key = "owner"
-	if key == "":
-		return []
-	var calmed: Array = []
-	for t in _enemy.tokens:
-		if t.get("kind", "") == GameLogic.KIND_ADJ and t.get("attaches", "") == key \
-				and t.get("sentiment", "") == GameLogic.NEGATIVE:
-			t["sentiment"] = GameLogic.NEUTRAL
-			calmed.append(t.get("text", ""))
-	return calmed
-
-
-func _sorted_letters(w: String) -> Array:
-	var chars: Array = []
-	for ch in w.to_lower():
-		chars.append(ch)
-	chars.sort()
-	return chars

@@ -1,183 +1,148 @@
-## Headless CLI to play the letter-ladder game from the command line.
+## Headless CLI to play the full letter-ladder gauntlet from the command line.
 ##
-## Drives the real WordLadder + GameLogic + dictionary; state persists between
-## invocations in a JSON file, so each call is one move. Lets a human (or an agent)
-## play and playtest the actual rules without the GUI.
+## Drives the real LadderBattle + Gauntlet + WordLadder; run state persists between
+## invocations in a JSON file, so each call is one move.
 ##
-##   godot --headless --script res://play.gd -- new [EnemyName]
+##   godot --headless --script res://play.gd -- new
 ##   godot --headless --script res://play.gd -- state
 ##   godot --headless --script res://play.gd -- move <index> <word>
-##   godot --headless --script res://play.gd -- hint <index> [count]   # calibration
+##   godot --headless --script res://play.gd -- pass
 extends SceneTree
 
 const BANK_PATH := "res://data/word_bank.json"
 const DICT_PATH := "res://data/dictionary.json"
-const STATE_PATH := "user://wp_play.json"
-
-const KIND_POS := {
-	GameLogic.KIND_ITEM: "noun",
-	GameLogic.KIND_CREATURE: "noun",
-	GameLogic.KIND_ADJ: "adjective",
-}
+const STATE_PATH := "user://wp_run.json"
+const START_HP := 24
+const HEAL := 6
 
 var _ladder: WordLadder
+var _gauntlet: Gauntlet
 
 
 func _initialize() -> void:
 	_ladder = WordLadder.load_from(DICT_PATH)
+	_gauntlet = Gauntlet.new()
+	_gauntlet.setup(GameLogic.load_bank(BANK_PATH))
 	var args := OS.get_cmdline_user_args()
 	var cmd: String = args[0] if args.size() > 0 else "state"
 	match cmd:
-		"new": _cmd_new(args)
+		"new": _cmd_new()
 		"move": _cmd_move(args)
-		"hint": _cmd_hint(args)
-		_: _print_state(_load(), "")
+		"pass": _cmd_pass()
+		_: _print_run(_load())
 	quit(0)
 
 
-# --- commands ----------------------------------------------------------------
-
-func _cmd_new(args: Array) -> void:
-	var bank := GameLogic.load_bank(BANK_PATH)
-	var characters: Array = bank.get("characters", [])
-	var template: Dictionary = {}
-	if args.size() > 1:
-		for c in characters:
-			if (c as Dictionary).get("name", "").to_lower() == String(args[1]).to_lower():
-				template = c
-	if template.is_empty():
-		var rng := RandomNumberGenerator.new()
-		rng.randomize()
-		template = GameLogic.pick_character(characters, "enemy", rng)
-	var state := {
-		"enemy": GameLogic.make_fighter(template),
-		"used": [],
-	}
-	_save(state)
-	_print_state(state, "New enemy: %s" % state.enemy.name)
+func _cmd_new() -> void:
+	var run := {"depth": 1, "hp": START_HP, "max": START_HP,
+		"enemy": _gauntlet.generate(1), "used": [], "over": ""}
+	_save(run)
+	print("=== NEW RUN ===")
+	_print_run(run)
 
 
 func _cmd_move(args: Array) -> void:
-	var state := _load()
-	if state.is_empty():
-		print("No game in progress. Run: new"); return
+	var run := _load()
+	if run.is_empty() or run.get("over", "") != "":
+		print("No active run. Run: new"); return
 	if args.size() < 3:
 		print("usage: move <index> <word>"); return
-	var idx := int(args[1])
-	var word := String(args[2])
-	var tokens: Array = state.enemy.tokens
-	if idx < 0 or idx >= tokens.size():
-		print("bad index %d" % idx); return
-	var tok: Dictionary = tokens[idx]
-	if not (tok.get("kind", "") in GameLogic.EDITABLE_KINDS):
-		print("token [%d] '%s' is fixed scenery — not editable" % [idx, tok.get("text", "")]); return
+	var battle := _battle_from(run)
+	var res := battle.try_move(int(args[1]), String(args[2]))
+	_after_move(run, battle, res)
 
-	var target: String = tok.get("text", "")
-	var required_pos: String = KIND_POS.get(tok.get("kind", ""), "")
-	var r := _ladder.validate(word, target, required_pos, state.used)
-	if not r.get("ok", false):
-		_print_state(state, "REJECTED %s -> %s : %s" % [target, word, r.get("reason", "")])
+
+func _cmd_pass() -> void:
+	var run := _load()
+	if run.is_empty() or run.get("over", "") != "":
+		print("No active run. Run: new"); return
+	var battle := _battle_from(run)
+	var res := battle.pass_turn()
+	_after_move(run, battle, res)
+
+
+## Apply a battle result back into the run: log it, advance/heal on win, end on loss.
+func _after_move(run: Dictionary, battle: LadderBattle, res: Dictionary) -> void:
+	if not res.get("ok", false):
+		print("REJECTED: " + str(res.get("reason", "invalid")))
+		_print_run(run)  # unchanged
 		return
 
-	tok["text"] = word.strip_edges().to_lower()
-	tok["sentiment"] = r.get("sentiment", "neutral")
-	state.used.append(tok["text"])
-	var note := ""
-	if tok.get("kind", "") in [GameLogic.KIND_ITEM, GameLogic.KIND_CREATURE] \
-			and r.get("sentiment", "") != GameLogic.NEGATIVE:
-		var calmed := _neutralize_adjectives_of(tokens, tok)
-		if not calmed.is_empty():
-			note = "  (calmed: %s)" % ", ".join(calmed)
-	_save(state)
-	_print_state(state, "OK  %s -> %s  [%s, %s]%s" % [
-		target, tok["text"], r.get("direction", "?"), r.get("sentiment", "?"), note])
+	# Persist the battle's mutations back into the run.
+	run.enemy = battle.enemy
+	run.used = battle.used
+	run.hp = battle.player_hp
 
+	if res.get("passed", false):
+		print("You hesitate — enemy strikes for %d." % res.damage)
+	else:
+		var note := ("  (calmed %s)" % ", ".join(res.calmed)) if not res.calmed.is_empty() else ""
+		print("YOU: %s -> %s  [%s, %s]%s" % [
+			res.target, res.word, res.direction, res.sentiment, note])
+		if int(res.damage) > 0:
+			print("ENEMY strikes for %d." % res.damage)
 
-## Calibration helper: list some valid ladder words for a noun (NOT used in play).
-func _cmd_hint(args: Array) -> void:
-	var state := _load()
-	if state.is_empty() or args.size() < 2:
-		print("usage: hint <index> [count]"); return
-	var idx := int(args[1])
-	var count: int = int(args[2]) if args.size() > 2 else 12
-	var tok: Dictionary = state.enemy.tokens[idx]
-	var target: String = tok.get("text", "")
-	var pos: String = KIND_POS.get(tok.get("kind", ""), "")
-	var found: Array = []
-	for w in _ladder.words:
-		if found.size() >= count:
-			break
-		var r := _ladder.validate(w, target, pos, state.used)
-		if r.get("ok", false) and r.get("sentiment", "") != GameLogic.NEGATIVE:
-			found.append("%s(%s,%s)" % [w, r.direction, r.sentiment])
-	print("hint for [%d] %s (%s): %s" % [idx, target, pos, ", ".join(found)])
+	if res.get("lost", false):
+		run.over = "lost"
+		_save(run)
+		print("\n*** DEFEATED at depth %d. Final score: %d enemies cleared. ***" % [
+			run.depth, run.depth - 1])
+		return
+
+	if res.get("won", false):
+		var cleared: int = run.depth
+		run.hp = mini(int(run.max), int(run.hp) + HEAL)
+		run.depth = cleared + 1
+		run.enemy = _gauntlet.generate(run.depth)
+		run.used = []
+		_save(run)
+		print("\n*** ENEMY DISARMED! +%d HP. Descending to depth %d... ***\n" % [HEAL, run.depth])
+		_print_run(run)
+		return
+
+	_save(run)
+	_print_run(run)
 
 
 # --- helpers -----------------------------------------------------------------
 
-func _neutralize_adjectives_of(tokens: Array, noun: Dictionary) -> Array:
-	var key := ""
-	if noun.get("kind", "") == GameLogic.KIND_ITEM:
-		key = "item:%d" % int(noun.get("item_index", -1))
-	elif noun.get("kind", "") == GameLogic.KIND_CREATURE:
-		key = "owner"
-	if key == "":
-		return []
-	var calmed: Array = []
-	for t in tokens:
-		if t.get("kind", "") == GameLogic.KIND_ADJ and t.get("attaches", "") == key \
-				and t.get("sentiment", "") == GameLogic.NEGATIVE:
-			t["sentiment"] = GameLogic.NEUTRAL
-			calmed.append(t.get("text", ""))
-	return calmed
+func _battle_from(run: Dictionary) -> LadderBattle:
+	var b := LadderBattle.new()
+	b.ladder = _ladder
+	b.enemy = run.enemy
+	b.player_hp = int(run.hp)
+	b.player_max = int(run.max)
+	b.used = run.used
+	b.state = LadderBattle.STATE_PLAY
+	return b
 
 
-func _weapons_left(tokens: Array) -> int:
-	var n := 0
-	for t in tokens:
-		if t.get("kind", "") in [GameLogic.KIND_ITEM, GameLogic.KIND_CREATURE] \
-				and t.get("sentiment", "") == GameLogic.NEGATIVE:
-			n += 1
-	return n
-
-
-func _print_state(state: Dictionary, msg: String) -> void:
-	if state.is_empty():
-		print("No game. Run: new"); return
-	if msg != "":
-		print(msg)
-	var tokens: Array = state.enemy.tokens
+func _print_run(run: Dictionary) -> void:
+	if run.is_empty():
+		print("No run. Run: new"); return
+	var battle := _battle_from(run)
+	print("DEPTH %d    HP %d/%d" % [run.depth, run.hp, run.max])
+	var tokens: Array = run.enemy.tokens
 	var parts: Array = []
 	for i in range(tokens.size()):
 		var t: Dictionary = tokens[i]
-		var kind: String = t.get("kind", "")
-		if kind == GameLogic.KIND_FIXED:
+		if t.get("kind", "") == GameLogic.KIND_FIXED:
 			parts.append(t.get("text", ""))
 		else:
 			var sign: String = {"positive": "+", "negative": "-", "neutral": "0"}.get(t.get("sentiment", ""), "?")
-			var k: String = {"noun": "N", "adjective": "A"}.get(KIND_POS.get(kind, ""), "?")
-			parts.append("[%d]%s(%s%s)" % [i, t.get("text", ""), k, sign])
+			parts.append("[%d]%s(%s)" % [i, t.get("text", ""), sign])
 	print("  " + " ".join(parts))
-	var left := _weapons_left(tokens)
-	print("  weapons left (negative nouns): %d" % left)
-	if left == 0:
-		print("  *** DISARMED — you win! ***")
-	else:
-		var lines: Array = []
-		for i in range(tokens.size()):
-			var t: Dictionary = tokens[i]
-			if t.get("kind", "") in [GameLogic.KIND_ITEM, GameLogic.KIND_CREATURE] \
-					and t.get("sentiment", "") == GameLogic.NEGATIVE:
-				lines.append("    [%d] %s  letters: %s" % [
-					i, t.get("text", ""), " ".join(_sorted_letters(t.get("text", "")))])
-		print("  targets (disarm these nouns):")
-		for l in lines:
-			print(l)
-	if not (state.used as Array).is_empty():
-		print("  used: " + ", ".join(state.used))
+	var weapons := battle.weapon_indices()
+	print("  incoming damage next turn: %d   (weapons: %d)" % [battle.incoming_damage(), weapons.size()])
+	for i in weapons:
+		var t: Dictionary = tokens[i]
+		print("    [%d] %s  (⚔%d)  letters: %s" % [
+			i, t.get("text", ""), battle.weapon_damage(i), " ".join(_letters(t.get("text", "")))])
+	if not (run.used as Array).is_empty():
+		print("  used: " + ", ".join(run.used))
 
 
-func _sorted_letters(w: String) -> Array:
+func _letters(w: String) -> Array:
 	var chars: Array = []
 	for ch in w.to_lower():
 		chars.append(ch)
@@ -185,9 +150,9 @@ func _sorted_letters(w: String) -> Array:
 	return chars
 
 
-func _save(state: Dictionary) -> void:
+func _save(run: Dictionary) -> void:
 	var f := FileAccess.open(STATE_PATH, FileAccess.WRITE)
-	f.store_string(JSON.stringify(state))
+	f.store_string(JSON.stringify(run))
 
 
 func _load() -> Dictionary:

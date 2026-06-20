@@ -65,10 +65,12 @@ func validate(typed: String, target: String, required_pos: String, used: Array) 
 	if not is_word(w):
 		return {"ok": false, "reason": "'%s' isn't in the dictionary" % w}
 
-	# Same part of speech, so the sentence stays grammatical.
-	var pos: String = tags(w).get("pos", "other")
-	if required_pos != "" and pos != required_pos:
-		return {"ok": false, "reason": "'%s' is a %s — need a %s" % [w, pos, required_pos]}
+	# Same part of speech, so the sentence stays grammatical. A word can have
+	# several (e.g. 'fan' is noun and verb); accept if any matches.
+	var pos_list: Array = tags(w).get("pos", [])
+	if required_pos != "" and not (required_pos in pos_list):
+		var have := ("/".join(pos_list)) if not pos_list.is_empty() else "?"
+		return {"ok": false, "reason": "'%s' is %s — need a %s" % [w, have, required_pos]}
 
 	# Auto-detect direction: pure subset (shrink) or pure superset (grow).
 	var direction := ""
@@ -80,5 +82,5 @@ func validate(typed: String, target: String, required_pos: String, used: Array) 
 		return {"ok": false, "reason":
 			"'%s' must add to OR remove from the letters of '%s' (no swaps)" % [w, t]}
 
-	return {"ok": true, "reason": "", "pos": pos,
+	return {"ok": true, "reason": "", "pos": required_pos,
 		"sentiment": tags(w).get("sentiment", "neutral"), "direction": direction}
