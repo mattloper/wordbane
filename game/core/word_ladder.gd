@@ -49,13 +49,16 @@ static func is_submultiset(a: String, b: String) -> bool:
 	return true
 
 
-## Count how many valid same-POS transforms a target has (capped at `limit` for
-## speed via early-exit). Used to reject near-dead-end weapons like 'jinx'.
+## Count how many valid *disarming* transforms a target has — same POS, a strict
+## sub/superset, and non-negative (only those actually disarm a weapon). Capped at
+## `limit` via early-exit. Used to reject near-dead-end weapons like 'jinx'.
 func count_transforms(target: String, required_pos: String, limit: int) -> int:
 	var t := target.to_lower()
 	var n := 0
 	for w in words:
-		if w == t or not (required_pos in words[w].get("pos", [])):
+		var meta: Dictionary = words[w]
+		if w == t or meta.get("sentiment", "") == "negative" \
+				or not (required_pos in meta.get("pos", [])):
 			continue
 		var grew: bool = w.length() > t.length() and is_submultiset(t, w)
 		var shrank: bool = w.length() < t.length() and is_submultiset(w, t)
@@ -64,6 +67,17 @@ func count_transforms(target: String, required_pos: String, limit: int) -> int:
 			if n >= limit:
 				return n
 	return n
+
+
+## Find one valid disarming word for `target` (for solvers/hints), or "" if none.
+func find_transform(target: String, required_pos: String, used: Array) -> String:
+	for w in words:
+		if w in used:
+			continue
+		var r := validate(w, target, required_pos, used)
+		if r.get("ok", false) and r.get("sentiment", "") != "negative":
+			return w
+	return ""
 
 
 ## Validate a typed transform of `target`. The result must be a real word, the

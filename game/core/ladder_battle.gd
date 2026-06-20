@@ -49,12 +49,14 @@ func weapon_damage(token_index: int) -> int:
 	return int(GameLogic.item_power(enemy.tokens, int(t.get("item_index", -1))).get("amount", 0))
 
 
-## Total damage you'll take next enemy turn from all surviving weapons.
+## Damage you'll take next enemy turn: the enemy strikes with its single deadliest
+## surviving weapon. So disarming the biggest threat first directly cuts the hit —
+## and damage scales gently (linearly) with weapon count rather than exploding.
 func incoming_damage() -> int:
-	var total := 0
+	var worst := 0
 	for i in weapon_indices():
-		total += weapon_damage(i)
-	return total
+		worst = maxi(worst, weapon_damage(i))
+	return worst
 
 
 ## Attempt to disarm weapon `idx` by typing `word`. Invalid words cost nothing

@@ -6,6 +6,9 @@
 class_name Gauntlet
 extends RefCounted
 
+# Run tuning (single source of truth; the scene, CLI and solver all read these).
+const START_HP := 30
+const HEAL := 8               # HP regained per enemy cleared
 const MAX_ITEMS := 4
 const MIN_DANGER_MULT := 1.5  # only "dangerous" adjectives arm weapons
 const MIN_DISARMS := 10       # a weapon must have at least this many fair answers
@@ -47,8 +50,10 @@ func _danger_adjectives() -> Array:
 
 
 ## Build the enemy for a given (1-based) round: more weapons as you go deeper.
+## Ramp is gentle — 2 weapons through depth 3, 3 by depth 4, 4 by depth 7 — so the
+## damage economy doesn't wall a skilled player; vocabulary is the real limiter.
 func generate(round: int) -> Dictionary:
-	var num_items: int = clampi(2 + int((round - 1) / 2.0), 2, MAX_ITEMS)
+	var num_items: int = clampi(2 + int((round - 1) / 3.0), 2, MAX_ITEMS)
 	var adjs := _danger_adjectives()
 	var creature := _pick(_neg(GameLogic.KIND_CREATURE))
 	var owner_adj := _pick(adjs)

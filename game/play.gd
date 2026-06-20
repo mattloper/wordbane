@@ -12,8 +12,8 @@ extends SceneTree
 const BANK_PATH := "res://data/word_bank.json"
 const DICT_PATH := "res://data/dictionary.json"
 const STATE_PATH := "user://wp_run.json"
-const START_HP := 24
-const HEAL := 6
+const START_HP := Gauntlet.START_HP
+const HEAL := Gauntlet.HEAL
 
 var _ladder: WordLadder
 var _gauntlet: Gauntlet

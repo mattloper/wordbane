@@ -158,8 +158,8 @@ func _initialize() -> void:
 			"item_type": "hp_attack", "base": 3, "item_index": 1},   # ⚔3
 	]}
 	lb.begin(foe, 10, 10)
-	_check(lb.incoming_damage() == 5, "incoming damage sums both weapons (2+3)")
-	var d1 := lb.try_move(2, "axle")  # disarm axe; surviving knife hits for 2
+	_check(lb.incoming_damage() == 3, "incoming damage = deadliest weapon (max of 2,3)")
+	var d1 := lb.try_move(2, "axle")  # disarm axe(3); surviving knife(2) now deadliest
 	_check(d1.get("ok", false) and lb.player_hp == 8, "disarm axe, take knife's 2 damage")
 	var d2 := lb.try_move(1, "fin")   # disarm knife; none left -> win, no damage
 	_check(d2.get("won", false) and lb.state == LadderBattle.STATE_WON, "disarm all weapons -> win")

@@ -12,8 +12,8 @@ extends Control
 
 const BANK_PATH := "res://data/word_bank.json"
 const DICT_PATH := "res://data/dictionary.json"
-const START_HP := 24
-const HEAL := 6
+const START_HP := Gauntlet.START_HP
+const HEAL := Gauntlet.HEAL
 
 var _ladder: WordLadder
 var _gauntlet: Gauntlet
@@ -119,7 +119,7 @@ func _refresh() -> void:
 	_hpbar.modulate = Color(0.35, 0.75, 0.4) if _hp > START_HP / 3 else Color(0.9, 0.35, 0.35)
 
 	_render_sentence()
-	_incoming.text = "" if _over else "If you stall, you take %d damage next turn." % _battle.incoming_damage()
+	_incoming.text = "" if _over else "Its deadliest weapon will hit you for %d next turn." % _battle.incoming_damage()
 	if _over:
 		_selinfo.text = "GAME OVER — press New Run."
 	elif _selected >= 0:
