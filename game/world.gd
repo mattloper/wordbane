@@ -1,43 +1,46 @@
-## World prototype (NOT the game yet) — 3D.
+## World prototype (NOT the game yet) — 3D, with clickable words.
 ##
-## A step toward "a place made of words". Each character is its *sentence*,
-## rendered by the normal 2D rich-text engine (so wrapping, spacing, per-word
-## colour and a bold owner all come for free) into an off-screen SubViewport,
-## then shown on a single Sprite3D billboard that always faces the camera. This
-## is much easier to tune than hand-placing each word in 3D: change the font size
-## or wrap width and the layout just works.
+## Each character is its *sentence*, rendered by the 2D rich-text engine into an
+## off-screen SubViewport and shown on a single quad in 3D (so layout/wrapping/
+## colour are free). Editable words are wrapped in [url] meta tags, and the quad
+## has an Area3D collider: a 3D click is mapped to the viewport's pixel and pushed
+## in as a synthetic mouse click, so RichTextLabel emits `meta_clicked`. Clicking
+## a word randomizes it (via GameLogic.reroll_token) to prove the loop end to end.
 ##
-## Scenery (a "tree", a "hill") are word-objects too. A slow camera orbit gives
-## depth / parallax. Purely visual — no combat yet.
+## Prototype simplification: the camera is static and each card is oriented once
+## to face it (no billboard), so the collider exactly matches what's drawn. Re-
+## enabling the orbiting camera will need the collider to track the billboard.
 ##
-## View it with:  godot --path game world.tscn
+## View it with:  godot --path game world.tscn  (then click the coloured words)
 extends Node3D
-
-const COLOR_POSITIVE := Color(0.50, 0.90, 0.55)
-const COLOR_NEGATIVE := Color(0.97, 0.43, 0.43)
-const COLOR_NEUTRAL := Color(0.88, 0.88, 0.93)
-const COLOR_FIXED := Color(0.62, 0.62, 0.70)
 
 const CARD_SIZE := Vector2i(440, 360)  # off-screen render resolution per character
 const CARD_FONT := 40
 const OWNER_FONT := 60
 const PIXEL_SIZE := 0.011             # world units per texture pixel (overall scale)
 
+var _rng := RandomNumberGenerator.new()
+var _pools: Dictionary = {}
 var _cam: Camera3D
-var _angle := 0.0
+var _hint: Label
 
 
 func _ready() -> void:
+	_rng.randomize()
+	get_viewport().physics_object_picking = true  # needed for Area3D mouse picking
+
 	_build_environment()
 	_cam = Camera3D.new()
 	_cam.fov = 58
+	_cam.position = Vector3(0, 1.9, 12)
 	add_child(_cam)
 	_cam.current = true
-	_place_camera()
+	_cam.look_at(Vector3(0, 1.9, 0), Vector3.UP)
 	_build_ground()
 	_add_scenery()
 
 	var bank := GameLogic.load_bank("res://data/word_bank.json")
+	_pools = bank.get("pools", {})
 	var chars: Array = bank.get("characters", [])
 	var enemy := _find(chars, "Dragon")
 	var player := _find(chars, "Knight")
@@ -46,42 +49,33 @@ func _ready() -> void:
 	if not player.is_empty():
 		_add_character(player.tokens, Vector3(3.4, 1.9, 0.0))
 
-	_add_caption("a place made of words — 3D prototype")
+	_add_overlay()
 
 
-func _process(delta: float) -> void:
-	_angle += delta * 0.18  # gentle orbit for depth / parallax
-	_place_camera()
+# --- characters: a clickable sentence on a quad ------------------------------
 
-
-func _place_camera() -> void:
-	var r := 9.5
-	_cam.position = Vector3(sin(_angle) * r, 3.1, cos(_angle) * r)
-	_cam.look_at(Vector3(0, 1.7, 0), Vector3.UP)
-
-
-# --- characters: a sentence on a billboard -----------------------------------
-
-## Build the BBCode for a character's sentence: each word coloured by sentiment,
-## the owner bold and larger, all in natural reading order.
+## BBCode for a sentence: each word coloured by sentiment, owner bold/large, and
+## every editable word wrapped in a [url=<token index>] so it can be clicked.
 func _sentence_bbcode(tokens: Array) -> String:
 	var parts: Array = []
-	for t in tokens:
-		var token: Dictionary = t
-		var hex := _sentiment_color(token).to_html(false)
+	for i in range(tokens.size()):
+		var token: Dictionary = tokens[i]
+		var kind: String = token.get("kind", "")
+		var hex := WordStyle.color_for(token).to_html(false)
 		var word: String = token.get("text", "")
-		var is_owner: bool = token.get("kind", "") == GameLogic.KIND_CREATURE \
-			and bool(token.get("is_owner", false))
-		if is_owner:
-			parts.append("[font_size=%d][b][color=#%s]%s[/color][/b][/font_size]"
-				% [OWNER_FONT, hex, word])
+		var styled: String
+		if kind == GameLogic.KIND_CREATURE and bool(token.get("is_owner", false)):
+			styled = "[font_size=%d][b][color=#%s]%s[/color][/b][/font_size]" % [OWNER_FONT, hex, word]
 		else:
-			parts.append("[color=#%s]%s[/color]" % [hex, word])
+			styled = "[color=#%s]%s[/color]" % [hex, word]
+		if kind in GameLogic.EDITABLE_KINDS:
+			styled = "[url=%d]%s[/url]" % [i, styled]
+		parts.append(styled)
 	return "[center]" + " ".join(parts) + "[/center]"
 
 
 func _add_character(tokens: Array, pos: Vector3) -> void:
-	# Off-screen viewport that renders the sentence as 2D rich text.
+	# Off-screen viewport renders the sentence as 2D rich text.
 	var sv := SubViewport.new()
 	sv.size = CARD_SIZE
 	sv.transparent_bg = true
@@ -94,16 +88,60 @@ func _add_character(tokens: Array, pos: Vector3) -> void:
 	rtl.size = CARD_SIZE
 	rtl.add_theme_font_size_override("normal_font_size", CARD_FONT)
 	rtl.text = _sentence_bbcode(tokens)
+	rtl.meta_clicked.connect(_on_word_clicked.bind(rtl, tokens))
 	sv.add_child(rtl)
 
-	# A single billboard that always faces the camera, textured by the viewport.
+	# A quad facing the (static) camera, textured by the viewport, plus a matching
+	# collider so we can pick words by raycast.
+	var root := Node3D.new()
+	root.position = pos
+	add_child(root)
+	root.look_at(2.0 * pos - _cam.global_position, Vector3.UP)  # +Z toward camera
+
 	var card := Sprite3D.new()
-	card.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	card.shaded = false
 	card.texture = sv.get_texture()
 	card.pixel_size = PIXEL_SIZE
-	card.position = pos
-	add_child(card)
+	root.add_child(card)
+
+	var w := CARD_SIZE.x * PIXEL_SIZE
+	var h := CARD_SIZE.y * PIXEL_SIZE
+	var area := Area3D.new()
+	var cs := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(w, h, 0.1)
+	cs.shape = box
+	area.add_child(cs)
+	area.input_event.connect(_on_card_input.bind(root, sv, Vector2(w, h)))
+	root.add_child(area)
+
+
+## A 3D click on a card -> the viewport pixel under it -> a synthetic mouse click.
+func _on_card_input(_camera: Node, event: InputEvent, event_position: Vector3,
+		_normal: Vector3, _shape_idx: int, root: Node3D, sv: SubViewport, size: Vector2) -> void:
+	if not (event is InputEventMouseButton and event.pressed \
+			and event.button_index == MOUSE_BUTTON_LEFT):
+		return
+	var local := root.to_local(event_position)
+	var uv := Vector2(local.x / size.x + 0.5, 0.5 - local.y / size.y)
+	var pixel := Vector2(uv.x * CARD_SIZE.x, uv.y * CARD_SIZE.y)
+	for pressed in [true, false]:
+		var mb := InputEventMouseButton.new()
+		mb.button_index = MOUSE_BUTTON_LEFT
+		mb.position = pixel
+		mb.pressed = pressed
+		sv.push_input(mb)
+
+
+## Fired when a [url] word is clicked: randomize that word and redraw the card.
+func _on_word_clicked(meta: Variant, rtl: RichTextLabel, tokens: Array) -> void:
+	var idx := int(str(meta))
+	if idx < 0 or idx >= tokens.size():
+		return
+	var before: String = tokens[idx].get("text", "")
+	GameLogic.reroll_token(tokens[idx], _pools, _rng)
+	rtl.text = _sentence_bbcode(tokens)
+	_set_hint("clicked '%s' → '%s'" % [before, tokens[idx].get("text", "")])
 
 
 # --- scenery / environment ---------------------------------------------------
@@ -151,24 +189,26 @@ func _add_scenery() -> void:
 	add_child(hill)
 
 
-func _add_caption(text: String) -> void:
+func _add_overlay() -> void:
 	var layer := CanvasLayer.new()
-	var l := Label.new()
-	l.text = text
-	l.position = Vector2(20, 16)
-	l.add_theme_font_size_override("font_size", 16)
-	l.add_theme_color_override("font_color", COLOR_FIXED)
-	layer.add_child(l)
+	var caption := Label.new()
+	caption.text = "a place made of words — click a coloured word to randomize it"
+	caption.position = Vector2(20, 16)
+	caption.add_theme_font_size_override("font_size", 16)
+	caption.add_theme_color_override("font_color", WordStyle.FIXED)
+	layer.add_child(caption)
+
+	_hint = Label.new()
+	_hint.position = Vector2(20, 40)
+	_hint.add_theme_font_size_override("font_size", 16)
+	_hint.add_theme_color_override("font_color", WordStyle.NEUTRAL)
+	layer.add_child(_hint)
 	add_child(layer)
 
 
-func _sentiment_color(token: Dictionary) -> Color:
-	if token.get("kind", "") == GameLogic.KIND_FIXED:
-		return COLOR_FIXED
-	match token.get("sentiment", ""):
-		GameLogic.POSITIVE: return COLOR_POSITIVE
-		GameLogic.NEGATIVE: return COLOR_NEGATIVE
-		_: return COLOR_NEUTRAL
+func _set_hint(text: String) -> void:
+	if _hint:
+		_hint.text = text
 
 
 func _find(chars: Array, name: String) -> Dictionary:

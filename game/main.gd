@@ -18,11 +18,6 @@ const ST_TARGET := "target"   # picking which enemy word(s) to randomize
 const ST_BUSY := "busy"       # enemy acting / animating
 const ST_OVER := "over"       # battle finished
 
-const COLOR_POSITIVE := Color(0.40, 0.85, 0.45)
-const COLOR_NEGATIVE := Color(0.96, 0.36, 0.36)
-const COLOR_NEUTRAL := Color(0.80, 0.80, 0.85)
-const COLOR_FIXED := Color(0.55, 0.55, 0.62)
-
 var _rng := RandomNumberGenerator.new()
 var _pools: Dictionary = {}
 var _characters: Array = []
@@ -217,10 +212,10 @@ func _banner_text() -> String:
 
 func _banner_color() -> Color:
 	match _state:
-		ST_CHOOSE: return COLOR_POSITIVE
+		ST_CHOOSE: return WordStyle.POSITIVE
 		ST_TARGET: return Color(1.0, 0.85, 0.3)
-		ST_BUSY: return COLOR_NEGATIVE
-		_: return COLOR_NEUTRAL
+		ST_BUSY: return WordStyle.NEGATIVE
+		_: return WordStyle.NEUTRAL
 
 
 ## Render a character as a small sideways tree: the owner is the body (top),
@@ -269,13 +264,13 @@ func _branch_row() -> HBoxContainer:
 
 func _connector(glyph: String) -> Label:
 	var l := _label(glyph, 20)
-	l.add_theme_color_override("font_color", COLOR_FIXED)
+	l.add_theme_color_override("font_color", WordStyle.FIXED)
 	return l
 
 
 ## One word as a Button (when interactive) or Label, colored by sentiment.
 func _token_control(token: Dictionary, idx: int, tokens: Array, mode: String, font_size: int) -> Control:
-	var color := _sentiment_color(token)
+	var color := WordStyle.color_for(token)
 	var kind: String = token.get("kind", "")
 	var cb := Callable()
 	if mode == "items" and kind == GameLogic.KIND_ITEM:
@@ -299,20 +294,6 @@ func _token_control(token: Dictionary, idx: int, tokens: Array, mode: String, fo
 	lbl.add_theme_font_size_override("font_size", font_size)
 	lbl.add_theme_color_override("font_color", color)
 	return lbl
-
-
-func _sentiment_color(token: Dictionary) -> Color:
-	match token.get("kind", ""):
-		GameLogic.KIND_FIXED:
-			return COLOR_FIXED
-		_:
-			match token.get("sentiment", ""):
-				GameLogic.POSITIVE:
-					return COLOR_POSITIVE
-				GameLogic.NEGATIVE:
-					return COLOR_NEGATIVE
-				_:
-					return COLOR_NEUTRAL
 
 
 func _on_player_item_pressed(item_index: int) -> void:
