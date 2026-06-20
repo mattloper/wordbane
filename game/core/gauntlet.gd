@@ -8,14 +8,25 @@ extends RefCounted
 
 const MAX_ITEMS := 4
 const MIN_DANGER_MULT := 1.5  # only "dangerous" adjectives arm weapons
+const MIN_DISARMS := 10       # a weapon must have at least this many fair answers
 
 var _pools: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
+var _usable_items: Array = []  # weapons with enough valid disarms (set in setup)
 
 
-func setup(bank: Dictionary) -> void:
+## `ladder` is optional; if given, weapons with too few disarms (e.g. 'jinx') are
+## filtered out so every fight is fairly solvable.
+func setup(bank: Dictionary, ladder: WordLadder = null) -> void:
 	_pools = bank.get("pools", {})
 	_rng.randomize()
+	var all_items: Array = _neg(GameLogic.KIND_ITEM)
+	_usable_items = []
+	for it in all_items:
+		if ladder == null or ladder.count_transforms(it.get("text", ""), "noun", MIN_DISARMS) >= MIN_DISARMS:
+			_usable_items.append(it)
+	if _usable_items.is_empty():
+		_usable_items = all_items  # safety: never leave the pool empty
 
 
 func _neg(kind: String) -> Array:
@@ -49,8 +60,8 @@ func generate(round: int) -> Dictionary:
 		"sentiment": GameLogic.NEGATIVE, "is_owner": true})
 	tokens.append(_fixed("wields"))
 
-	# Distinct items per enemy (no "wields a hex and a hex").
-	var items := _neg(GameLogic.KIND_ITEM).duplicate()
+	# Distinct, fairly-solvable items per enemy (no "wields a hex and a hex").
+	var items := _usable_items.duplicate()
 	items.shuffle()
 	for i in range(num_items):
 		if i > 0:

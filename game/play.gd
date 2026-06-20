@@ -22,7 +22,7 @@ var _gauntlet: Gauntlet
 func _initialize() -> void:
 	_ladder = WordLadder.load_from(DICT_PATH)
 	_gauntlet = Gauntlet.new()
-	_gauntlet.setup(GameLogic.load_bank(BANK_PATH))
+	_gauntlet.setup(GameLogic.load_bank(BANK_PATH), _ladder)
 	var args := OS.get_cmdline_user_args()
 	var cmd: String = args[0] if args.size() > 0 else "state"
 	match cmd:

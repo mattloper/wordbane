@@ -37,7 +37,7 @@ var _log: Label
 func _ready() -> void:
 	_ladder = WordLadder.load_from(DICT_PATH)
 	_gauntlet = Gauntlet.new()
-	_gauntlet.setup(GameLogic.load_bank(BANK_PATH))
+	_gauntlet.setup(GameLogic.load_bank(BANK_PATH), _ladder)
 	_battle = LadderBattle.new()
 	_battle.ladder = _ladder
 	_build_ui()
@@ -81,6 +81,20 @@ func _on_disarm_pressed() -> void:
 		_log_msg("✅ Disarmed! +%d HP. Descending to depth %d…" % [HEAL, _depth])
 		_start_enemy()
 		return
+	_hp = _battle.player_hp
+	if res.get("lost", false):
+		_over = true
+		_log_msg("💀 You fell at depth %d. Score: %d enemies cleared." % [_depth, _depth - 1])
+	_refresh()
+
+
+func _on_skip_pressed() -> void:
+	if _over:
+		return
+	var res := _battle.pass_turn()
+	if not res.get("ok", false):
+		return
+	_log_msg("You skip — enemy strikes for %d." % res.damage)
 	_hp = _battle.player_hp
 	if res.get("lost", false):
 		_over = true
@@ -211,6 +225,10 @@ func _build_ui() -> void:
 	go.text = "Disarm"
 	go.pressed.connect(_on_disarm_pressed)
 	controls.add_child(go)
+	var skip := Button.new()
+	skip.text = "Skip (take the hit)"
+	skip.pressed.connect(_on_skip_pressed)
+	controls.add_child(skip)
 	col.add_child(controls)
 
 	col.add_child(HSeparator.new())

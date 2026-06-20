@@ -164,9 +164,13 @@ func _initialize() -> void:
 	var d2 := lb.try_move(1, "fin")   # disarm knife; none left -> win, no damage
 	_check(d2.get("won", false) and lb.state == LadderBattle.STATE_WON, "disarm all weapons -> win")
 
-	# --- Gauntlet: generates escalating, distinct-weapon enemies ---
+	# --- solvability: 'jinx' is a near-dead-end, 'spear' is rich ---
+	_check(wl.count_transforms("jinx", "noun", 10) < 10, "'jinx' has few disarms (unfair)")
+	_check(wl.count_transforms("spear", "noun", 10) >= 10, "'spear' has plenty of disarms")
+
+	# --- Gauntlet: escalating, distinct, fairly-solvable weapons ---
 	var g := Gauntlet.new()
-	g.setup(bank)
+	g.setup(bank, wl)
 	var e := g.generate(3)
 	var weps: Array = []
 	for t in e.tokens:
@@ -177,6 +181,11 @@ func _initialize() -> void:
 	for w in weps:
 		uniq[w] = true
 	_check(uniq.size() == weps.size(), "gauntlet weapons are distinct (no duplicates)")
+	var all_solvable := true
+	for w in weps:
+		if wl.count_transforms(w, "noun", Gauntlet.MIN_DISARMS) < Gauntlet.MIN_DISARMS:
+			all_solvable = false
+	_check(all_solvable, "every gauntlet weapon is fairly solvable (no 'jinx')")
 
 	if _failures == 0:
 		print("ALL PASS")

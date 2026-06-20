@@ -49,6 +49,23 @@ static func is_submultiset(a: String, b: String) -> bool:
 	return true
 
 
+## Count how many valid same-POS transforms a target has (capped at `limit` for
+## speed via early-exit). Used to reject near-dead-end weapons like 'jinx'.
+func count_transforms(target: String, required_pos: String, limit: int) -> int:
+	var t := target.to_lower()
+	var n := 0
+	for w in words:
+		if w == t or not (required_pos in words[w].get("pos", [])):
+			continue
+		var grew: bool = w.length() > t.length() and is_submultiset(t, w)
+		var shrank: bool = w.length() < t.length() and is_submultiset(w, t)
+		if grew or shrank:
+			n += 1
+			if n >= limit:
+				return n
+	return n
+
+
 ## Validate a typed transform of `target`. The result must be a real word, the
 ## same `required_pos` (pass "" to skip), a strict subset OR superset of the
 ## target's letters (direction auto-detected), and not already `used`.
