@@ -118,6 +118,28 @@ func _initialize() -> void:
 		_check(battle.state == Battle.ST_TARGET, "word-attack item enters targeting mode")
 	battle.queue_free()
 
+	# --- WordLadder validation (letter-ladder mechanic) ---
+	_check(WordLadder.is_submultiset("fine", "knife"), "'fine' is a sub-multiset of 'knife'")
+	_check(not WordLadder.is_submultiset("fix", "knife"), "'fix' is NOT a sub-multiset of 'knife' (no x)")
+
+	var wl := WordLadder.load_from("res://data/dictionary.json")
+	_check(not wl.words.is_empty(), "dictionary loads")
+	_check(wl.is_word("knife") and wl.is_word("fine"), "known words present")
+
+	# knife -> fine: a valid shrink that flips negative -> positive.
+	var ok := wl.validate("fine", "knife", WordLadder.MODE_SHRINK, [])
+	_check(ok.get("ok", false) and ok.get("sentiment", "") == GameLogic.POSITIVE,
+		"shrink knife->fine is valid and positive")
+	# wolf -> wonderful: a valid grow (bidirectional escapes dead-ends).
+	var grow := wl.validate("wonderful", "wolf", WordLadder.MODE_GROW, [])
+	_check(grow.get("ok", false), "grow wolf->wonderful is valid")
+	# Reuse is rejected.
+	var reuse := wl.validate("fine", "knife", WordLadder.MODE_SHRINK, ["fine"])
+	_check(not reuse.get("ok", false), "reused word is rejected")
+	# Substitution (not pure add/remove) is rejected.
+	var subst := wl.validate("wife", "knife", WordLadder.MODE_SHRINK, [])
+	_check(not subst.get("ok", false), "substitution (knife->wife) is rejected")
+
 	if _failures == 0:
 		print("ALL PASS")
 		quit(0)
