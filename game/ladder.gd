@@ -51,6 +51,7 @@ func _start_run() -> void:
 	_depth = 1
 	_over = false
 	_log_lines = []
+	_battle.used = []  # no-reuse spans the whole run
 	_start_enemy()
 	_log_msg("A foe blocks your path. Disarm its weapons!")
 
@@ -119,7 +120,11 @@ func _refresh() -> void:
 	_hpbar.modulate = Color(0.35, 0.75, 0.4) if _hp > START_HP / 3 else Color(0.9, 0.35, 0.35)
 
 	_render_sentence()
-	_incoming.text = "" if _over else "Its deadliest weapon will hit you for %d next turn." % _battle.incoming_damage()
+	if _over:
+		_incoming.text = ""
+	else:
+		_incoming.text = "Its deadliest weapon will hit you for %d next turn.    (words spent this run: %d — no reuse)" % [
+			_battle.incoming_damage(), _battle.used.size()]
 	if _over:
 		_selinfo.text = "GAME OVER — press New Run."
 	elif _selected >= 0:

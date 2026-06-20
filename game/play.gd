@@ -94,7 +94,7 @@ func _after_move(run: Dictionary, battle: LadderBattle, res: Dictionary) -> void
 		run.hp = mini(int(run.max), int(run.hp) + HEAL)
 		run.depth = cleared + 1
 		run.enemy = _gauntlet.generate(run.depth)
-		run.used = []
+		# run.used carries forward — no-reuse spans the whole run.
 		_save(run)
 		print("\n*** ENEMY DISARMED! +%d HP. Descending to depth %d... ***\n" % [HEAL, run.depth])
 		_print_run(run)

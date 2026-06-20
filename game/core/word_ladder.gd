@@ -92,7 +92,7 @@ func validate(typed: String, target: String, required_pos: String, used: Array) 
 	if w == t:
 		return {"ok": false, "reason": "must be a different word"}
 	if w in used:
-		return {"ok": false, "reason": "'%s' already used this battle" % w}
+		return {"ok": false, "reason": "'%s' already used this run" % w}
 	if not is_word(w):
 		return {"ok": false, "reason": "'%s' isn't in the dictionary" % w}
 

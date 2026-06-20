@@ -1,72 +1,97 @@
 ## Difficulty-balancing harness (dev tool, not part of the game).
 ##
-## Auto-plays the gauntlet with PERFECT word-finding and optimal disarm order
-## (always remove the deadliest weapon you can solve), to measure the damage
-## economy independent of vocabulary. Use it after changing tuning constants in
-## Gauntlet (START_HP / HEAL / ramp / multipliers) to see the curve.
+## Auto-plays the gauntlet to measure the difficulty curve after tuning changes.
+## Models a LIMITED-VOCABULARY player: for each weapon they know only the K
+## easiest (shortest, then alphabetical) disarms — a rough proxy for what a person
+## can actually think of. With run-wide no-reuse, those known words get spent, so
+## the player eventually must Skip (take a hit) — which is the real new difficulty.
+##
+## Reports reached depth for several vocab sizes K, so you can tune HP/HEAL/ramp
+## (in Gauntlet) against a realistic player, not a perfect solver.
 ##
 ##   godot --headless --script res://balance.gd
-##
-## Read the result as: "even a perfect player is walled at this depth by damage
-## alone." Real players, limited by word-finding, end shallower — so you want this
-## comfortably deeper than your target human depth.
 extends SceneTree
 
-const RUNS := 40
+const RUNS := 60
 const DEPTH_CAP := 60
+const VOCAB_SIZES := [4, 6, 8, 999]  # 999 ≈ perfect vocabulary
+
+var _ladder: WordLadder
+var _disarm_cache: Dictionary = {}  # weapon word -> [disarms, easiest first]
 
 
 func _initialize() -> void:
-	var ladder := WordLadder.load_from("res://data/dictionary.json")
+	_ladder = WordLadder.load_from("res://data/dictionary.json")
 	var g := Gauntlet.new()
-	g.setup(GameLogic.load_bank("res://data/word_bank.json"), ladder)
+	g.setup(GameLogic.load_bank("res://data/word_bank.json"), _ladder)
 
-	var depths: Array = []
-	var dmg_by_depth: Dictionary = {}
-	var fights_by_depth: Dictionary = {}
-	for _run in range(RUNS):
-		var hp: int = Gauntlet.START_HP
-		var depth := 0
-		while depth < DEPTH_CAP:
-			depth += 1
-			var b := LadderBattle.new()
-			b.ladder = ladder
-			b.begin(g.generate(depth), hp, Gauntlet.START_HP)
-			var took := 0
-			var safety := 0
-			while b.state == LadderBattle.STATE_PLAY and safety < 40:
-				safety += 1
-				var weps := b.weapon_indices()
-				weps.sort_custom(func(a, c): return b.weapon_damage(a) > b.weapon_damage(c))
-				var moved := false
-				for wi in weps:
-					var word := ladder.find_transform(b.enemy.tokens[wi].text, "noun", b.used)
-					if word != "":
-						var before := b.player_hp
-						b.try_move(wi, word)
-						took += before - b.player_hp
-						moved = true
-						break
-				if not moved:
-					var before2 := b.player_hp
-					b.pass_turn()
-					took += before2 - b.player_hp
-			dmg_by_depth[depth] = float(dmg_by_depth.get(depth, 0.0)) + took
-			fights_by_depth[depth] = int(fights_by_depth.get(depth, 0)) + 1
-			if b.state == LadderBattle.STATE_LOST:
-				break
-			hp = mini(Gauntlet.START_HP, b.player_hp + Gauntlet.HEAL)
-		depths.append(depth)
-
-	depths.sort()
-	var sum := 0.0
-	for d in depths:
-		sum += d
 	print("Tuning: START_HP=%d HEAL=%d" % [Gauntlet.START_HP, Gauntlet.HEAL])
-	print("OPTIMAL-PLAY depth over %d runs: min=%d median=%d max=%d mean=%.1f" % [
-		RUNS, depths[0], depths[depths.size() / 2], depths[-1], sum / depths.size()])
-	print("avg damage per fight by depth:")
-	for d in range(1, 13):
-		if fights_by_depth.has(d):
-			print("  depth %2d: %.1f" % [d, float(dmg_by_depth[d]) / float(fights_by_depth[d])])
+	for k in VOCAB_SIZES:
+		var depths: Array = []
+		for run in range(RUNS):
+			depths.append(_play_run(g, k, run))
+		depths.sort()
+		var sum := 0.0
+		for d in depths:
+			sum += d
+		var label: String = "perfect" if k >= 999 else str(k)
+		print("  vocab=%-7s depth: min=%2d median=%2d max=%2d mean=%.1f" % [
+			label, depths[0], depths[depths.size() / 2], depths[-1], sum / depths.size()])
 	quit(0)
+
+
+## Play one run with a K-word-per-weapon vocabulary; return depth reached.
+func _play_run(g: Gauntlet, vocab: int, seed_offset: int) -> int:
+	var hp: int = Gauntlet.START_HP
+	var used: Array = []
+	var depth := 0
+	while depth < DEPTH_CAP:
+		depth += 1
+		var b := LadderBattle.new()
+		b.ladder = _ladder
+		b.begin(g.generate(depth), hp, Gauntlet.START_HP)
+		b.used = used
+		var safety := 0
+		while b.state == LadderBattle.STATE_PLAY and safety < 40:
+			safety += 1
+			var word := _best_known_move(b, vocab)
+			if word.is_empty():
+				b.pass_turn()  # no known unused word — eat a hit
+			else:
+				b.try_move(word[0], word[1])
+		if b.state == LadderBattle.STATE_LOST:
+			break
+		hp = mini(Gauntlet.START_HP, b.player_hp + Gauntlet.HEAL)
+	return depth
+
+
+## Pick the deadliest weapon we have an unused known word for. Returns [idx, word]
+## or [] if none.
+func _best_known_move(b: LadderBattle, vocab: int) -> Array:
+	var weps := b.weapon_indices()
+	weps.sort_custom(func(a, c): return b.weapon_damage(a) > b.weapon_damage(c))
+	for wi in weps:
+		var target: String = b.enemy.tokens[wi].text
+		for w in _known_disarms(target, vocab):
+			if not (w in b.used):
+				return [wi, w]
+	return []
+
+
+## The K easiest disarms a player would know for a weapon (cached).
+func _known_disarms(target: String, vocab: int) -> Array:
+	if not _disarm_cache.has(target):
+		var found: Array = []
+		for w in _ladder.words:
+			var m: Dictionary = _ladder.words[w]
+			if w == target or m.get("sentiment", "") == "negative" or not ("noun" in m.get("pos", [])):
+				continue
+			var grew: bool = w.length() > target.length() and WordLadder.is_submultiset(target, w)
+			var shrank: bool = w.length() < target.length() and WordLadder.is_submultiset(w, target)
+			if grew or shrank:
+				found.append(w)
+		# easiest first: shorter, then alphabetical
+		found.sort_custom(func(a, c): return a.length() < c.length() if a.length() != c.length() else a < c)
+		_disarm_cache[target] = found
+	var all: Array = _disarm_cache[target]
+	return all.slice(0, mini(vocab, all.size()))

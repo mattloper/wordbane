@@ -24,11 +24,12 @@ var used: Array = []
 var state := STATE_PLAY
 
 
+## Start a fight. NOTE: `used` is NOT cleared here — no-reuse spans the whole run,
+## so the caller seeds `used` once at run start and it carries between battles.
 func begin(enemy_fighter: Dictionary, hp: int, max_hp: int) -> void:
 	enemy = enemy_fighter
 	player_hp = hp
 	player_max = max_hp
-	used = []
 	state = STATE_PLAY
 
 
