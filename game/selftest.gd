@@ -97,6 +97,27 @@ func _initialize() -> void:
 	_check(i0 == order[0] and i1 == order[order.size() - 1] and i2 == order[0],
 		"item cycle telegraph loops")
 
+	# --- Battle flow (the shared state machine) ---
+	var battle := Battle.new()
+	root.add_child(battle)
+	battle.setup(bank)
+	battle.new_game()
+	_check(not battle.player.is_empty() and not battle.enemy.is_empty(),
+		"battle.new_game sets up both fighters")
+	_check(battle.state == Battle.ST_CHOOSE, "battle starts on the player's turn")
+
+	# A word-randomizer item enters targeting mode (this path doesn't await a
+	# turn timer, so it's safe to drive synchronously here). The HP-attack /
+	# damage math is covered by the apply_item test above.
+	var word_idx := -1
+	for t in battle.player.tokens:
+		if t.get("kind", "") == GameLogic.KIND_ITEM and t.get("item_type", "") == GameLogic.WORD_ATTACK:
+			word_idx = int(t.get("item_index", -1))
+	if word_idx >= 0:
+		battle.use_item(word_idx)
+		_check(battle.state == Battle.ST_TARGET, "word-attack item enters targeting mode")
+	battle.queue_free()
+
 	if _failures == 0:
 		print("ALL PASS")
 		quit(0)

@@ -20,6 +20,19 @@ static func item_effect(tokens: Array, item_index: int) -> String:
 		GameLogic.item_label(tokens, item_index), verb, p.base, p.mult]
 
 
+## The enemy's looping item plan, with a marker on what it'll do next.
+static func telegraph(fighter: Dictionary) -> String:
+	var order: Array = fighter.item_order
+	if order.is_empty():
+		return ""
+	var parts: Array = []
+	for i in range(order.size()):
+		var item_index: int = order[i]
+		var marker := "▸ " if i == int(fighter.cycle_index) else "  "
+		parts.append(marker + item_effect(fighter.tokens, item_index))
+	return "Enemy plan (loops):   " + "      ".join(parts)
+
+
 ## Past-tense summary of a resolved action, for the message log.
 static func describe(actor: String, res: Dictionary, target: String) -> String:
 	if not res.get("ok", false):

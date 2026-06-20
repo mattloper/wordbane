@@ -18,3 +18,12 @@ static func color_for(token: Dictionary) -> Color:
 		GameLogic.POSITIVE: return POSITIVE
 		GameLogic.NEGATIVE: return NEGATIVE
 		_: return NEUTRAL
+
+
+## Colour for the turn banner, by Battle phase.
+static func phase_color(state: String) -> Color:
+	match state:
+		Battle.ST_CHOOSE: return POSITIVE
+		Battle.ST_TARGET: return Color(1.0, 0.85, 0.3)
+		Battle.ST_BUSY: return NEGATIVE
+		_: return NEUTRAL

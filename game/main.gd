@@ -1,34 +1,13 @@
-## Wordplay — main scene controller.
+## Wordplay — 2D scene view.
 ##
-## Turn-based duel between two sentences. Each character has an *owner* (its
-## subject noun, found by syntax at build time) and *items* (its other nouns).
-## Owners deal no damage; items do. Adjectives multiply their item's effect.
-##
-## Your turn: click one of YOUR item words to use it. If it's a word-attack item,
-## you then click which ENEMY word(s) to randomize. The enemy cycles through its
-## items in a fixed, telegraphed order. Win by reducing the enemy to 0 HP *or*
-## pacifying it (no negative words left); lose if your HP hits 0.
+## Renders a Battle as two "being" trees (owner = body, items = branches) with HP
+## bars and a turn banner. All turn logic lives in Battle; this script only draws
+## and forwards clicks (use_item / target_word).
 extends Control
 
 const BANK_PATH := "res://data/word_bank.json"
 
-# Interaction states.
-const ST_CHOOSE := "choose"   # your turn: pick one of your items
-const ST_TARGET := "target"   # picking which enemy word(s) to randomize
-const ST_BUSY := "busy"       # enemy acting / animating
-const ST_OVER := "over"       # battle finished
-
-var _rng := RandomNumberGenerator.new()
-var _pools: Dictionary = {}
-var _characters: Array = []
-
-var _player: Dictionary = {}
-var _enemy: Dictionary = {}
-var _state := ST_CHOOSE
-var _player_msg := ""
-var _pending_targets := 0
-var _pending_label := ""
-var _battle_id := 0  # bumped each New Battle; guards stale timer coroutines
+var _battle: Battle
 
 # UI nodes.
 var _banner: Label
@@ -44,15 +23,17 @@ var _player_items: Label
 
 
 func _ready() -> void:
-	_rng.randomize()
 	var bank := GameLogic.load_bank(BANK_PATH)
 	if bank.is_empty():
 		_fatal("Could not load %s.\nGenerate it: cd tools && uv run wordplay-generate" % BANK_PATH)
 		return
-	_pools = bank.get("pools", {})
-	_characters = bank.get("characters", [])
+	_battle = Battle.new()
+	add_child(_battle)
 	_build_ui()
-	_new_game()
+	_battle.changed.connect(_refresh)
+	_battle.logged.connect(func(t: String): _status.text = t)
+	_battle.setup(bank)
+	_battle.new_game()
 
 
 # --- UI construction ---------------------------------------------------------
@@ -82,7 +63,6 @@ func _build_ui() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(title)
 
-	# Enemy block.
 	_enemy_header = _label("", 19)
 	col.add_child(_enemy_header)
 	_enemy_hp = _hp_bar(Color(0.85, 0.30, 0.30))
@@ -93,9 +73,8 @@ func _build_ui() -> void:
 	_telegraph.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_telegraph)
 
-	col.add_child(_separator())
+	col.add_child(HSeparator.new())
 
-	# Turn banner + message log.
 	_banner = _label("", 22)
 	_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(_banner)
@@ -105,9 +84,8 @@ func _build_ui() -> void:
 	_status.custom_minimum_size = Vector2(0, 48)
 	col.add_child(_status)
 
-	col.add_child(_separator())
+	col.add_child(HSeparator.new())
 
-	# Player block.
 	_player_header = _label("", 19)
 	col.add_child(_player_header)
 	_player_hp = _hp_bar(Color(0.35, 0.70, 0.95))
@@ -121,7 +99,7 @@ func _build_ui() -> void:
 	var restart := Button.new()
 	restart.text = "New Battle"
 	restart.add_theme_font_size_override("font_size", 16)
-	restart.pressed.connect(_new_game)
+	restart.pressed.connect(func(): _battle.new_game())
 	var center := CenterContainer.new()
 	center.add_child(restart)
 	col.add_child(center)
@@ -132,10 +110,6 @@ func _label(text: String, size: int) -> Label:
 	l.text = text
 	l.add_theme_font_size_override("font_size", size)
 	return l
-
-
-func _separator() -> HSeparator:
-	return HSeparator.new()
 
 
 func _hp_bar(color: Color) -> ProgressBar:
@@ -162,85 +136,51 @@ func _panel(child: Control) -> PanelContainer:
 	return panel
 
 
-# --- game flow ---------------------------------------------------------------
-
-func _new_game() -> void:
-	var enemy_t := GameLogic.pick_character(_characters, "enemy", _rng)
-	var player_t := GameLogic.pick_character(_characters, "player", _rng)
-	if enemy_t.is_empty() or player_t.is_empty():
-		_status.text = "Word bank is missing player/enemy characters."
-		return
-	_battle_id += 1
-	_enemy = GameLogic.make_fighter(enemy_t)
-	_player = GameLogic.make_fighter(player_t)
-	_state = ST_CHOOSE
-	_player_msg = ""
-	_pending_targets = 0
-	_status.text = "Click one of your item words below to use it."
-	_refresh()
-
+# --- rendering (driven by Battle) --------------------------------------------
 
 func _refresh() -> void:
-	_enemy_hp.max_value = _enemy.max_hp
-	_enemy_hp.value = _enemy.hp
-	_player_hp.max_value = _player.max_hp
-	_player_hp.value = _player.hp
+	var e: Dictionary = _battle.enemy
+	var p: Dictionary = _battle.player
+	if e.is_empty():
+		return
+	_enemy_hp.max_value = e.max_hp
+	_enemy_hp.value = e.hp
+	_player_hp.max_value = p.max_hp
+	_player_hp.value = p.hp
 
 	_enemy_header.text = "ENEMY — %s    HP %d/%d    threats: %d    wards: %d" % [
-		_enemy.name, _enemy.hp, _enemy.max_hp,
-		GameLogic.count_negative(_enemy.tokens), _enemy.wards]
+		e.name, e.hp, e.max_hp, GameLogic.count_negative(e.tokens), e.wards]
 	_player_header.text = "YOU — %s    HP %d/%d    wards: %d" % [
-		_player.name, _player.hp, _player.max_hp, _player.wards]
+		p.name, p.hp, p.max_hp, p.wards]
 
-	_render_being(_enemy_being, _enemy, "target" if _state == ST_TARGET else "none")
-	_render_being(_player_being, _player, "items" if _state == ST_CHOOSE else "none")
+	_render_being(_enemy_being, e, "target" if _battle.state == Battle.ST_TARGET else "none")
+	_render_being(_player_being, p, "items" if _battle.state == Battle.ST_CHOOSE else "none")
 
-	_banner.text = _banner_text()
-	_banner.add_theme_color_override("font_color", _banner_color())
-	_telegraph.text = _telegraph_text()
-	_player_items.text = _player_items_text()
-
-
-func _banner_text() -> String:
-	match _state:
-		ST_CHOOSE: return "● YOUR TURN — use an item"
-		ST_TARGET: return "◎ PICK A TARGET — click %d enemy word(s)" % _pending_targets
-		ST_BUSY: return "ENEMY TURN…"
-		ST_OVER: return "GAME OVER"
-	return ""
+	_banner.text = _battle.banner_text()
+	_banner.add_theme_color_override("font_color", WordStyle.phase_color(_battle.state))
+	_telegraph.text = CombatText.telegraph(e)
+	_player_items.text = _player_items_text(p)
 
 
-func _banner_color() -> Color:
-	match _state:
-		ST_CHOOSE: return WordStyle.POSITIVE
-		ST_TARGET: return Color(1.0, 0.85, 0.3)
-		ST_BUSY: return WordStyle.NEGATIVE
-		_: return WordStyle.NEUTRAL
-
-
-## Render a character as a small sideways tree: the owner is the body (top),
-## each item branches below it as a limb carrying its adjectives. This is the
-## dependency structure spaCy found at build time, shown directly.
-## mode: "items" (player item buttons), "target" (enemy word buttons), "none".
+## Render a character as a sideways tree: owner is the body (top), each item a
+## branch carrying its adjectives. mode: "items" (use), "target" (scramble), "none".
 func _render_being(box: VBoxContainer, fighter: Dictionary, mode: String) -> void:
 	for c in box.get_children():
 		c.queue_free()
 	var tokens: Array = fighter.tokens
 
-	# Owner line: the owner word (big), preceded by its adjectives.
 	var owner_line := _branch_row()
 	var owner_idx := -1
 	for i in range(tokens.size()):
 		var t: Dictionary = tokens[i]
 		if t.get("kind", "") == GameLogic.KIND_ADJ and t.get("attaches", "") == "owner":
-			owner_line.add_child(_token_control(t, i, tokens, mode, 22))
+			owner_line.add_child(_token_control(t, i, mode, 22))
 		elif t.get("kind", "") == GameLogic.KIND_CREATURE and t.get("is_owner", false):
 			owner_idx = i
 	if owner_idx >= 0:
-		owner_line.add_child(_token_control(tokens[owner_idx], owner_idx, tokens, mode, 30))
+		owner_line.add_child(_token_control(tokens[owner_idx], owner_idx, mode, 30))
 	box.add_child(owner_line)
 
-	# One branch per item, in cycle order: connector + adjectives + item noun.
 	for item_index in fighter.item_order:
 		var line := _branch_row()
 		line.add_child(_connector("   ┗━"))
@@ -248,11 +188,11 @@ func _render_being(box: VBoxContainer, fighter: Dictionary, mode: String) -> voi
 		for i in range(tokens.size()):
 			var t: Dictionary = tokens[i]
 			if t.get("kind", "") == GameLogic.KIND_ADJ and t.get("attaches", "") == "item:%d" % int(item_index):
-				line.add_child(_token_control(t, i, tokens, mode, 22))
+				line.add_child(_token_control(t, i, mode, 22))
 			elif t.get("kind", "") == GameLogic.KIND_ITEM and int(t.get("item_index", -1)) == int(item_index):
 				noun_idx = i
 		if noun_idx >= 0:
-			line.add_child(_token_control(tokens[noun_idx], noun_idx, tokens, mode, 22))
+			line.add_child(_token_control(tokens[noun_idx], noun_idx, mode, 22))
 		box.add_child(line)
 
 
@@ -268,15 +208,15 @@ func _connector(glyph: String) -> Label:
 	return l
 
 
-## One word as a Button (when interactive) or Label, colored by sentiment.
-func _token_control(token: Dictionary, idx: int, tokens: Array, mode: String, font_size: int) -> Control:
+## One word as a Button (when actionable) or Label, coloured by sentiment.
+func _token_control(token: Dictionary, idx: int, mode: String, font_size: int) -> Control:
 	var color := WordStyle.color_for(token)
 	var kind: String = token.get("kind", "")
 	var cb := Callable()
 	if mode == "items" and kind == GameLogic.KIND_ITEM:
-		cb = Callable(self, "_on_player_item_pressed").bind(int(token.get("item_index", -1)))
+		cb = _battle.use_item.bind(int(token.get("item_index", -1)))
 	elif mode == "target" and kind in GameLogic.EDITABLE_KINDS:
-		cb = Callable(self, "_on_enemy_word_pressed").bind(idx)
+		cb = _battle.target_word.bind(idx)
 
 	if not cb.is_null():
 		var btn := Button.new()
@@ -284,8 +224,8 @@ func _token_control(token: Dictionary, idx: int, tokens: Array, mode: String, fo
 		btn.add_theme_font_size_override("font_size", font_size)
 		btn.add_theme_color_override("font_color", color)
 		btn.add_theme_color_override("font_hover_color", Color.WHITE)
-		if mode == "items":
-			btn.tooltip_text = CombatText.item_effect(tokens, int(token.get("item_index", -1)))
+		if mode == "items":  # items mode is only ever the player's being
+			btn.tooltip_text = CombatText.item_effect(_battle.player.tokens, int(token.get("item_index", -1)))
 		btn.pressed.connect(cb)
 		return btn
 
@@ -296,106 +236,8 @@ func _token_control(token: Dictionary, idx: int, tokens: Array, mode: String, fo
 	return lbl
 
 
-func _on_player_item_pressed(item_index: int) -> void:
-	if _state != ST_CHOOSE or item_index < 0:
-		return
-	var power := GameLogic.item_power(_player.tokens, item_index)
-	if power.get("type", "") == GameLogic.WORD_ATTACK:
-		# Enter targeting mode: player clicks which enemy words to randomize.
-		_pending_targets = int(power.amount)
-		_pending_label = GameLogic.item_label(_player.tokens, item_index)
-		_state = ST_TARGET
-		_refresh()
-		_status.text = "%s readies %s — click an enemy word to randomize it." % [
-			_player.name, _pending_label]
-		return
-	# Non-targeted items (HP attack, defenses) resolve immediately.
-	var res := GameLogic.apply_item(_player, _enemy, item_index, _pools, _rng)
-	_player_msg = CombatText.describe(_player.name, res, _enemy.name)
-	await _finish_player_action()
-
-
-func _on_enemy_word_pressed(token_index: int) -> void:
-	if _state != ST_TARGET:
-		return
-	var r := GameLogic.scramble_one(_enemy, token_index, _pools, _rng)
-	if not r.get("ok", false):
-		return
-	_pending_targets -= 1
-	var note := ("blocked by %s's ward!" % _enemy.name) if r.get("blocked", false) \
-		else ("→ randomized to '%s'." % r.get("text", ""))
-	_refresh()
-	if _check_end():
-		return
-	var no_targets: bool = GameLogic.editable_indices(_enemy.tokens).is_empty()
-	if _pending_targets <= 0 or no_targets:
-		_player_msg = "%s used %s (%s)" % [_player.name, _pending_label, note]
-		await _finish_player_action()
-	else:
-		_status.text = "%s  Click %d more enemy word(s)." % [note, _pending_targets]
-
-
-func _finish_player_action() -> void:
-	var id := _battle_id
-	_status.text = _player_msg
-	_state = ST_BUSY
-	_refresh()
-	if _check_end():
-		return
-	await get_tree().create_timer(0.55).timeout
-	if id != _battle_id:
-		return  # a New Battle started during the pause; abandon this coroutine
-	_enemy_turn()
-
-
-func _enemy_turn() -> void:
-	if _state == ST_OVER:
-		return
-	var idx := GameLogic.next_item_index(_enemy)
-	var res := GameLogic.apply_item(_enemy, _player, idx, _pools, _rng)
-	GameLogic.advance_cycle(_enemy)
-	_status.text = _player_msg + "\n" + CombatText.describe(_enemy.name, res, _player.name)
-	if _check_end():
-		return
-	_state = ST_CHOOSE
-	_refresh()
-
-
-func _check_end() -> bool:
-	if int(_enemy.hp) <= 0:
-		_end("VICTORY — you defeated %s (HP 0)!" % _enemy.name)
-		return true
-	if GameLogic.is_pacified(_enemy.tokens):
-		_end("VICTORY — %s is pacified: no negative words left!" % _enemy.name)
-		return true
-	if int(_player.hp) <= 0:
-		_end("DEFEAT — %s knocked your HP to 0." % _player.name)
-		return true
-	return false
-
-
-func _end(msg: String) -> void:
-	_state = ST_OVER
-	_status.text = msg + "\nPress New Battle to play again."
-	_refresh()
-
-
-# --- text helpers ------------------------------------------------------------
-
-func _telegraph_text() -> String:
-	var order: Array = _enemy.item_order
-	if order.is_empty():
-		return ""
+func _player_items_text(fighter: Dictionary) -> String:
 	var parts: Array = []
-	for i in range(order.size()):
-		var item_index: int = order[i]
-		var marker := "▸ " if i == int(_enemy.cycle_index) else "  "
-		parts.append(marker + CombatText.item_effect(_enemy.tokens, item_index))
-	return "Enemy plan (loops):   " + "      ".join(parts)
-
-
-func _player_items_text() -> String:
-	var parts: Array = []
-	for item_index in _player.item_order:
-		parts.append(CombatText.item_effect(_player.tokens, item_index))
+	for item_index in fighter.item_order:
+		parts.append(CombatText.item_effect(fighter.tokens, item_index))
 	return "Your items:   " + "      ".join(parts)

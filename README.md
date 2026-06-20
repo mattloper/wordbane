@@ -100,11 +100,20 @@ wordplay/
 │   └── tests/test_generate.py
 └── game/                        # Godot 4.6 project
     ├── project.godot
-    ├── main.tscn / main.gd      # UI + turn loop (built in code)
-    ├── game_logic.gd            # GameLogic: pure combat rules
+    ├── core/                    # view-agnostic logic (class_name globals)
+    │   ├── game_logic.gd        #   GameLogic — pure combat rules
+    │   ├── battle.gd            #   Battle — the turn-flow state machine (signals)
+    │   ├── combat_text.gd       #   CombatText — shared phrasing (logs, telegraph)
+    │   └── word_style.gd        #   WordStyle — shared word/phase colours
+    ├── main.tscn / main.gd      # 2D view: "being" trees + HP bars
+    ├── world.tscn / world.gd    # 3D view: sentences as cards in a field
     ├── selftest.gd              # headless smoke test
     └── data/word_bank.json      # generated; consumed at runtime
 ```
+
+Both views are thin: they render a `Battle` and forward clicks. The shared
+`core/` classes hold all rules, flow, and presentation strings, so the 2D and 3D
+scenes never duplicate logic.
 
 ## Testing
 
