@@ -1,11 +1,13 @@
 ## Letter-ladder prototype (2D).
 ##
-## Proves the core idea: pacify an enemy by rewriting its sentence with word
-## ladders. Click an enemy word, pick Shrink or Grow, and type a real word made
-## from its letters (subset to shrink, superset to grow). The word is replaced and
-## re-tagged; turn the whole sentence non-negative to win. No word may be reused.
+## Proves the core idea: disarm an enemy by rewriting its weapon words with word
+## ladders. Click a red NOUN, then type a real word made from its letters — add or
+## remove letters (direction auto-detected), same part of speech (noun->noun). The
+## word is replaced and re-tagged; disarm every negative noun to win. Adjectives
+## are multipliers (clickable adj->adj, but harmless once their noun is gone), so
+## the goal is the nouns. No word may be reused.
 ##
-## This is a focused slice (pacify only — no HP/turns yet) to test the feel.
+## This is a focused slice (disarm only — no HP/turns yet) to test the feel.
 ## Run with:  godot --path game ladder.tscn
 extends Control
 
@@ -20,11 +22,17 @@ var _selected := -1            # token index currently being transformed
 var _used: Array = []          # words spent this battle (no reuse)
 var _won := false
 
+# Token kind -> required part of speech for a transform (keeps the sentence grammatical).
+const KIND_POS := {
+	GameLogic.KIND_ITEM: "noun",
+	GameLogic.KIND_CREATURE: "noun",
+	GameLogic.KIND_ADJ: "adjective",
+}
+
 # UI.
 var _header: Label
 var _row: HFlowContainer
 var _selinfo: Label
-var _mode: OptionButton
 var _entry: LineEdit
 var _msg: Label
 var _used_label: Label
@@ -74,13 +82,9 @@ func _build_ui() -> void:
 	_selinfo = _label("Click an enemy word to select it.", 16)
 	col.add_child(_selinfo)
 
-	# Mode + entry row.
+	# Entry row (no shrink/grow toggle — either direction is auto-detected).
 	var controls := HBoxContainer.new()
 	controls.add_theme_constant_override("separation", 10)
-	_mode = OptionButton.new()
-	_mode.add_item("Shrink (remove letters)", 0)
-	_mode.add_item("Grow (add letters)", 1)
-	controls.add_child(_mode)
 	_entry = LineEdit.new()
 	_entry.placeholder_text = "type a word…"
 	_entry.custom_minimum_size = Vector2(260, 0)
@@ -130,19 +134,32 @@ func _new_battle() -> void:
 
 
 func _refresh() -> void:
-	var threats := GameLogic.count_negative(_enemy.tokens)
-	_header.text = "ENEMY — %s    threats: %d" % [_enemy.name, threats]
+	var threats := _negative_nouns()
+	_header.text = "ENEMY — %s    weapons left: %d   (disarm the red nouns)" % [
+		_enemy.name, threats]
 	_render_words()
 	if _selected >= 0:
-		var w: String = _enemy.tokens[_selected].get("text", "")
-		var letters := " ".join(_sorted_letters(w))
-		_selinfo.text = "Selected: %s   (letters: %s)" % [w, letters]
+		var tok: Dictionary = _enemy.tokens[_selected]
+		var w: String = tok.get("text", "")
+		var pos: String = KIND_POS.get(tok.get("kind", ""), "?")
+		_selinfo.text = "Selected: %s   (letters: %s)   → type a %s (add or remove letters)" % [
+			w, " ".join(_sorted_letters(w)), pos]
 	else:
-		_selinfo.text = "Click an enemy word to select it."
+		_selinfo.text = "Click a red noun to select it."
 	_used_label.text = "Used words: " + (", ".join(_used) if not _used.is_empty() else "—")
 	if threats == 0 and not _won:
 		_won = true
-		_msg.text = "✅ PACIFIED — %s has no menacing words left! (New Enemy to play again)" % _enemy.name
+		_msg.text = "✅ DISARMED — %s has no weapons left! (New Enemy to play again)" % _enemy.name
+
+
+## Negative noun-kind words (owner + items) are the weapons to disarm.
+func _negative_nouns() -> int:
+	var n := 0
+	for t in _enemy.tokens:
+		if t.get("kind", "") in [GameLogic.KIND_ITEM, GameLogic.KIND_CREATURE] \
+				and t.get("sentiment", "") == GameLogic.NEGATIVE:
+			n += 1
+	return n
 
 
 func _render_words() -> void:
@@ -182,22 +199,22 @@ func _submit() -> void:
 	if _selected < 0:
 		_msg.text = "Pick a word first."
 		return
-	var target: String = _enemy.tokens[_selected].get("text", "")
-	var mode := WordLadder.MODE_SHRINK if _mode.selected == 0 else WordLadder.MODE_GROW
-	var typed := _entry.text
-	var r := _ladder.validate(typed, target, mode, _used)
+	var tok: Dictionary = _enemy.tokens[_selected]
+	var target: String = tok.get("text", "")
+	var required_pos: String = KIND_POS.get(tok.get("kind", ""), "")
+	var r := _ladder.validate(_entry.text, target, required_pos, _used)
 	if not r.get("ok", false):
 		_msg.text = "✗ " + str(r.get("reason", "invalid"))
 		return
 	# Apply: rewrite the word in place, re-tag its sentiment.
-	var w := typed.strip_edges().to_lower()
-	var was_sent: String = _enemy.tokens[_selected].get("sentiment", "")
-	_enemy.tokens[_selected]["text"] = w
-	_enemy.tokens[_selected]["sentiment"] = r.get("sentiment", "neutral")
+	var w := _entry.text.strip_edges().to_lower()
+	var was_sent: String = tok.get("sentiment", "")
+	tok["text"] = w
+	tok["sentiment"] = r.get("sentiment", "neutral")
 	_used.append(w)
 	_entry.text = ""
-	_msg.text = "✓ %s → %s  (%s %s, was %s)" % [
-		target, w, r.get("pos", "?"), r.get("sentiment", "?"), was_sent]
+	_msg.text = "✓ %s → %s  (%s, %s, was %s)" % [
+		target, w, r.get("direction", "?"), r.get("sentiment", "?"), was_sent]
 	_refresh()
 
 

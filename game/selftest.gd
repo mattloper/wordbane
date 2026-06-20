@@ -126,18 +126,22 @@ func _initialize() -> void:
 	_check(not wl.words.is_empty(), "dictionary loads")
 	_check(wl.is_word("knife") and wl.is_word("fine"), "known words present")
 
-	# knife -> fine: a valid shrink that flips negative -> positive.
-	var ok := wl.validate("fine", "knife", WordLadder.MODE_SHRINK, [])
-	_check(ok.get("ok", false) and ok.get("sentiment", "") == GameLogic.POSITIVE,
-		"shrink knife->fine is valid and positive")
-	# wolf -> wonderful: a valid grow (bidirectional escapes dead-ends).
-	var grow := wl.validate("wonderful", "wolf", WordLadder.MODE_GROW, [])
-	_check(grow.get("ok", false), "grow wolf->wonderful is valid")
+	# knife -> fin: a valid same-POS shrink (noun -> noun), direction auto-detected.
+	var shrink := wl.validate("fin", "knife", "noun", [])
+	_check(shrink.get("ok", false) and shrink.get("direction", "") == "shrink",
+		"shrink knife->fin is valid (noun->noun)")
+	# wolf -> airflow: a valid same-POS grow (bidirectional escapes dead-ends).
+	var grow := wl.validate("airflow", "wolf", "noun", [])
+	_check(grow.get("ok", false) and grow.get("direction", "") == "grow",
+		"grow wolf->airflow is valid (noun->noun)")
+	# POS mismatch is rejected (knife->fine would be noun->adjective).
+	var posbad := wl.validate("fine", "knife", "noun", [])
+	_check(not posbad.get("ok", false), "POS mismatch knife->fine (noun->adj) is rejected")
 	# Reuse is rejected.
-	var reuse := wl.validate("fine", "knife", WordLadder.MODE_SHRINK, ["fine"])
+	var reuse := wl.validate("fin", "knife", "noun", ["fin"])
 	_check(not reuse.get("ok", false), "reused word is rejected")
 	# Substitution (not pure add/remove) is rejected.
-	var subst := wl.validate("wife", "knife", WordLadder.MODE_SHRINK, [])
+	var subst := wl.validate("wife", "knife", "noun", [])
 	_check(not subst.get("ok", false), "substitution (knife->wife) is rejected")
 
 	if _failures == 0:

@@ -2,15 +2,14 @@
 ##
 ## A move takes a target word's letters and the player types a new real word that
 ## is either a strict SUBSET (shrink: remove letters) or strict SUPERSET (grow:
-## add letters) of them — never a substitution. Bidirectional + no-reuse means you
-## can always move (big words shrink, small words grow) without dead-ends.
+## add letters) of them — never a substitution — and the SAME part of speech, so
+## the sentence stays grammatical (noun->noun, adjective->adjective). Both
+## directions are always allowed and auto-detected: big words shrink, small words
+## grow, so you never dead-end. No word may be reused in a battle.
 ##
 ## Backed by the build-time dictionary (word -> {pos, sentiment}); pure data, no UI.
 class_name WordLadder
 extends RefCounted
-
-const MODE_SHRINK := "shrink"
-const MODE_GROW := "grow"
 
 var words: Dictionary = {}  # word -> {pos, sentiment}
 
@@ -50,9 +49,11 @@ static func is_submultiset(a: String, b: String) -> bool:
 	return true
 
 
-## Validate a typed transform of `target` under `mode`, given already-used words.
-## Returns {ok: bool, reason: String, pos, sentiment} (tags present only if ok).
-func validate(typed: String, target: String, mode: String, used: Array) -> Dictionary:
+## Validate a typed transform of `target`. The result must be a real word, the
+## same `required_pos` (pass "" to skip), a strict subset OR superset of the
+## target's letters (direction auto-detected), and not already `used`.
+## Returns {ok, reason, pos, sentiment, direction} (tags/direction only if ok).
+func validate(typed: String, target: String, required_pos: String, used: Array) -> Dictionary:
 	var w := typed.strip_edges().to_lower()
 	var t := target.to_lower()
 	if w == "":
@@ -64,15 +65,20 @@ func validate(typed: String, target: String, mode: String, used: Array) -> Dicti
 	if not is_word(w):
 		return {"ok": false, "reason": "'%s' isn't in the dictionary" % w}
 
-	if mode == MODE_SHRINK:
-		if w.length() >= t.length() or not is_submultiset(w, t):
-			return {"ok": false, "reason": "shrink: use only letters from '%s'" % t}
-	elif mode == MODE_GROW:
-		if w.length() <= t.length() or not is_submultiset(t, w):
-			return {"ok": false, "reason": "grow: must contain all letters of '%s'" % t}
-	else:
-		return {"ok": false, "reason": "unknown mode"}
+	# Same part of speech, so the sentence stays grammatical.
+	var pos: String = tags(w).get("pos", "other")
+	if required_pos != "" and pos != required_pos:
+		return {"ok": false, "reason": "'%s' is a %s — need a %s" % [w, pos, required_pos]}
 
-	var tg := tags(w)
-	return {"ok": true, "reason": "", "pos": tg.get("pos", "other"),
-		"sentiment": tg.get("sentiment", "neutral")}
+	# Auto-detect direction: pure subset (shrink) or pure superset (grow).
+	var direction := ""
+	if w.length() < t.length() and is_submultiset(w, t):
+		direction = "shrink"
+	elif w.length() > t.length() and is_submultiset(t, w):
+		direction = "grow"
+	else:
+		return {"ok": false, "reason":
+			"'%s' must add to OR remove from the letters of '%s' (no swaps)" % [w, t]}
+
+	return {"ok": true, "reason": "", "pos": pos,
+		"sentiment": tags(w).get("sentiment", "neutral"), "direction": direction}
