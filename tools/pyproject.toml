@@ -7,7 +7,10 @@ requires-python = ">=3.10"
 # spaCy provides the dependency parse used to find each character's owner (the
 # grammatical subject). The English model is installed separately, see README:
 #   uv run python -m spacy download en_core_web_sm
-dependencies = ["spacy>=3.7"]
+# spacy: dependency parse to find each character's owner (the grammatical subject).
+# nltk: WordNet (part of speech) + SentiWordNet (sentiment) to build the validation
+#       dictionary. Both need one-time corpora downloads (see README).
+dependencies = ["spacy>=3.7", "nltk>=3.8"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
