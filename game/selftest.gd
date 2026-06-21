@@ -187,6 +187,11 @@ func _initialize() -> void:
 			all_solvable = false
 	_check(all_solvable, "every gauntlet weapon is fairly solvable (no 'jinx')")
 
+	# --- IconBank: emoji clipart for known words ---
+	var icons := IconBank.new()
+	_check(icons.of("dragon") == "🐉" and icons.of("knife") == "🔪", "known words map to emoji")
+	_check(icons.of("zzznotaword") == "", "unknown words map to no emoji")
+
 	if _failures == 0:
 		print("ALL PASS")
 		quit(0)
