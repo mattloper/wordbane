@@ -121,8 +121,8 @@ func _on_disarm_pressed() -> void:
 
 	if res.get("won", false):
 		_score += _chapter * 25  # chapter-clear bonus
-		_hp = mini(_max_hp, _battle.player_hp + HEAL)
-		_log_msg("Chapter %d cleared!  (+%d HP, +%d score)" % [_chapter, HEAL, _chapter * 25])
+		_hp = _battle.player_hp   # no free heal — recover via boons
+		_log_msg("Chapter %d cleared!  (+%d score)  Choose a reward." % [_chapter, _chapter * 25])
 		_offer_boons()
 		return
 	_hp = _battle.player_hp

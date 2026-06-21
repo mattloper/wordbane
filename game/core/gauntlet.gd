@@ -74,9 +74,12 @@ func generate(round: int) -> Dictionary:
 		tokens.append(_fixed("a"))
 		tokens.append(_adj(_pick(adjs), "item:%d" % i))
 		var item: Dictionary = items[i % items.size()]
+		# Weapons hit harder the deeper you go (+1 base every 3 chapters), so even
+		# a perfect player eventually out-paces healing — a ceiling for everyone.
+		var scaled_base: int = int(item.get("base", 2)) + int((round - 1) / 3.0)
 		tokens.append({"text": item.get("text", "blade"), "kind": GameLogic.KIND_ITEM,
 			"sentiment": GameLogic.NEGATIVE, "item_type": item.get("item_type", "hp_attack"),
-			"base": int(item.get("base", 2)), "item_index": i})
+			"base": scaled_base, "item_index": i})
 
 	return {
 		"name": String(creature.get("text", "foe")).capitalize(),

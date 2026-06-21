@@ -41,33 +41,47 @@ func _initialize() -> void:
 
 
 ## Play one run with a K-word-per-weapon vocabulary; return depth reached.
+## Recovery now comes only from boons (no free heal) — the player heals when low,
+## else grows. Models Focus (a hint) as being able to find ANY word for one weapon.
 func _play_run(g: Gauntlet, vocab: int, seed_offset: int) -> int:
 	var hp: int = Gauntlet.START_HP
+	var max_hp: int = Gauntlet.START_HP
 	var used: Array = []
+	var has_hint := false
 	var depth := 0
 	while depth < DEPTH_CAP:
 		depth += 1
 		var b := LadderBattle.new()
 		b.ladder = _ladder
-		b.begin(g.generate(depth), hp, Gauntlet.START_HP)
+		b.begin(g.generate(depth), hp, max_hp)
 		b.used = used
 		var safety := 0
 		while b.state == LadderBattle.STATE_PLAY and safety < 40:
 			safety += 1
-			var word := _best_known_move(b, vocab)
+			var word := _best_known_move(b, vocab, has_hint)
 			if word.is_empty():
-				b.pass_turn()  # no known unused word — eat a hit
+				b.pass_turn()  # no findable word — eat a hit
 			else:
 				b.try_move(word[0], word[1])
 		if b.state == LadderBattle.STATE_LOST:
 			break
-		hp = mini(Gauntlet.START_HP, b.player_hp + Gauntlet.HEAL)
+		hp = b.player_hp
+		# Pick a boon: heal when low, else grow, else relieve vocab, else hint.
+		var offer: Array = ["tough", "mend", "eraser"] if has_hint else ["tough", "mend", "eraser", "focus"]
+		if hp <= max_hp * 0.45 and "mend" in offer:
+			hp = max_hp
+		elif "tough" in offer:
+			max_hp += 6; hp = mini(max_hp, hp + 6)
+		elif "eraser" in offer:
+			used = []
+		else:
+			has_hint = true
 	return depth
 
 
-## Pick the deadliest weapon we have an unused known word for. Returns [idx, word]
-## or [] if none.
-func _best_known_move(b: LadderBattle, vocab: int) -> Array:
+## Pick the deadliest weapon we can disarm. Uses the K-word vocab; if Focus is
+## owned, falls back to the full dictionary for the deadliest weapon (a hint).
+func _best_known_move(b: LadderBattle, vocab: int, has_hint: bool) -> Array:
 	var weps := b.weapon_indices()
 	weps.sort_custom(func(a, c): return b.weapon_damage(a) > b.weapon_damage(c))
 	for wi in weps:
@@ -75,6 +89,10 @@ func _best_known_move(b: LadderBattle, vocab: int) -> Array:
 		for w in _known_disarms(target, vocab):
 			if not (w in b.used):
 				return [wi, w]
+	if has_hint and not weps.is_empty():
+		var w := _ladder.find_transform(b.enemy.tokens[weps[0]].text, "noun", b.used)
+		if w != "":
+			return [weps[0], w]
 	return []
 
 

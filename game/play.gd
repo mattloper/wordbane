@@ -127,12 +127,11 @@ func _after_move(run: Dictionary, battle: LadderBattle, res: Dictionary) -> void
 
 	if res.get("won", false):
 		run.score = int(run.score) + int(run.depth) * 25  # chapter-clear bonus
-		run.hp = mini(int(run.max), int(run.hp) + HEAL)
-		run.choosing = true
+		run.choosing = true                               # no free heal — recover via boons
 		run.boons = _offer_boons(run)
 		_save(run)
-		print("\n*** CHAPTER %d CLEARED! +%d HP, +%d score. Choose a reward: ***" % [
-			run.depth, HEAL, int(run.depth) * 25])
+		print("\n*** CHAPTER %d CLEARED! +%d score. Choose a reward: ***" % [
+			run.depth, int(run.depth) * 25])
 		for id in run.boons:
 			print("    boon %-7s  %s" % [id, BOONS[id]])
 		return
