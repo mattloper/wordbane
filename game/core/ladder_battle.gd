@@ -77,6 +77,9 @@ func try_move(idx: int, word: String) -> Dictionary:
 	var r := ladder.validate(word, target, "noun", used)
 	if not r.get("ok", false):
 		return r  # invalid — no turn consumed
+	# A disarm must make the weapon harmless; a still-negative word doesn't count.
+	if r.get("sentiment", "") == GameLogic.NEGATIVE:
+		return {"ok": false, "reason": "'%s' is still menacing — find a kinder word" % word.strip_edges().to_lower()}
 
 	# Disarm: rewrite the weapon, re-tag, calm its adjectives.
 	var w := word.strip_edges().to_lower()

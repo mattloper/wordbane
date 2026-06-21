@@ -24,7 +24,7 @@ const COL_MUTED := Color(0.55, 0.56, 0.64)
 const BOONS := [
 	{"id": "tough", "label": "Toughness", "desc": "+6 Max HP"},
 	{"id": "mend", "label": "Mend", "desc": "Heal to full"},
-	{"id": "eraser", "label": "Eraser", "desc": "Forget half your spent words"},
+	{"id": "eraser", "label": "Eraser", "desc": "Forget all spent words (reuse them)"},
 	{"id": "focus", "label": "Focus", "desc": "Gain a Hint button"},
 ]
 
@@ -190,7 +190,7 @@ func _take_boon(id: String) -> void:
 	match id:
 		"tough": _max_hp += 6; _hp = mini(_max_hp, _hp + 6)
 		"mend": _hp = _max_hp
-		"eraser": _battle.used = (_battle.used as Array).slice(int(_battle.used.size() / 2.0))
+		"eraser": _battle.used = []
 		"focus": _has_hint = true
 	_log_msg("Boon: %s" % id)
 	_chapter += 1

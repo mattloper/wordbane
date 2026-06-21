@@ -164,6 +164,15 @@ func _initialize() -> void:
 	var d2 := lb.try_move(1, "fin")   # disarm knife; none left -> win, no damage
 	_check(d2.get("won", false) and lb.state == LadderBattle.STATE_WON, "disarm all weapons -> win")
 
+	# A still-negative transform doesn't disarm — it must be rejected (no wasted turn).
+	var lb2 := LadderBattle.new()
+	lb2.ladder = wl
+	lb2.begin({"tokens": [{"text": "curse", "kind": GameLogic.KIND_ITEM,
+		"sentiment": GameLogic.NEGATIVE, "item_type": "hp_attack", "base": 2, "item_index": 0}]}, 10, 10)
+	var neg := lb2.try_move(0, "cur")  # 'cur' is a valid noun ladder but still negative
+	_check(not neg.get("ok", false) and lb2.player_hp == 10,
+		"negative-word 'disarm' is rejected, costs no turn")
+
 	# --- solvability: 'jinx' is a near-dead-end, 'spear' is rich ---
 	_check(wl.count_transforms("jinx", "noun", 10) < 10, "'jinx' has few disarms (unfair)")
 	_check(wl.count_transforms("spear", "noun", 10) >= 10, "'spear' has plenty of disarms")
