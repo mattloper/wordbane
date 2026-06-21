@@ -1,10 +1,10 @@
 ## Letter-Ladder Gauntlet (2D) — the playable game.
 ##
 ## Descend a gauntlet of escalating enemies. Each enemy's weapons are its red
-## nouns; each turn the survivors damage you. On your turn, click a weapon and type
-## a real word made from its letters (add OR remove letters, same part of speech)
-## to disarm it. Disarm them all to descend; your HP carries between fights (small
-## heal each victory). Lose when HP hits 0 — your score is the depth you reached.
+## nouns; each turn the deadliest survivor damages you. On your turn, click a
+## weapon tile and type a real word made from its letters (add OR remove letters,
+## same part of speech) to disarm it. Disarm them all to descend; HP carries
+## between fights (small heal each victory). Lose at 0 HP — score is the depth.
 ##
 ## All rules live in LadderBattle + Gauntlet + WordLadder; this is just the view.
 ## Run with:  godot --path game ladder.tscn
@@ -15,6 +15,12 @@ const DICT_PATH := "res://data/dictionary.json"
 const START_HP := Gauntlet.START_HP
 const HEAL := Gauntlet.HEAL
 
+const COL_BG := Color(0.11, 0.12, 0.17)
+const COL_PANEL := Color(0.16, 0.17, 0.23)
+const COL_WEAPON_FILL := Color(0.34, 0.13, 0.15)
+const COL_SELECT := Color(1.0, 0.86, 0.3)
+const COL_MUTED := Color(0.55, 0.56, 0.64)
+
 var _ladder: WordLadder
 var _gauntlet: Gauntlet
 var _battle: LadderBattle
@@ -24,13 +30,16 @@ var _selected := -1
 var _over := false
 var _log_lines: Array = []
 
-# UI.
-var _title: Label
-var _hpbar: ProgressBar
+# UI nodes.
+var _depth_label: Label
+var _enemy_head: Label
 var _row: HFlowContainer
 var _incoming: Label
 var _selinfo: Label
 var _entry: LineEdit
+var _hpbar: ProgressBar
+var _hp_label: Label
+var _spent_label: Label
 var _log: Label
 
 
@@ -63,29 +72,31 @@ func _start_enemy() -> void:
 
 
 func _on_disarm_pressed() -> void:
-	if _over or _selected < 0:
-		_selinfo.text = "Click a red weapon first, then type a word."
+	if _over:
+		return
+	if _selected < 0:
+		_selinfo.text = "Pick a weapon tile above, then type a word."
 		return
 	var res := _battle.try_move(_selected, _entry.text)
 	if not res.get("ok", false):
-		_selinfo.text = "✗ " + str(res.get("reason", "invalid"))
+		_selinfo.text = "Can't: " + str(res.get("reason", "invalid"))
 		return
 	_entry.text = ""
 	var calm := ("  (calmed %s)" % ", ".join(res.calmed)) if not res.calmed.is_empty() else ""
-	_log_msg("You: %s → %s [%s]%s" % [res.target, res.word, res.direction, calm])
+	_log_msg("You: %s -> %s [%s]%s" % [res.target, res.word, res.direction, calm])
 	if int(res.damage) > 0:
-		_log_msg("  ↳ enemy strikes for %d" % res.damage)
+		_log_msg("   enemy strikes for %d" % res.damage)
+	_selected = -1
 
 	if res.get("won", false):
 		_hp = mini(START_HP, _battle.player_hp + HEAL)
 		_depth += 1
-		_log_msg("✅ Disarmed! +%d HP. Descending to depth %d…" % [HEAL, _depth])
+		_log_msg("Disarmed! +%d HP. Descending to depth %d." % [HEAL, _depth])
 		_start_enemy()
 		return
 	_hp = _battle.player_hp
 	if res.get("lost", false):
-		_over = true
-		_log_msg("💀 You fell at depth %d. Score: %d enemies cleared." % [_depth, _depth - 1])
+		_lose()
 	_refresh()
 
 
@@ -98,9 +109,13 @@ func _on_skip_pressed() -> void:
 	_log_msg("You skip — enemy strikes for %d." % res.damage)
 	_hp = _battle.player_hp
 	if res.get("lost", false):
-		_over = true
-		_log_msg("💀 You fell at depth %d. Score: %d enemies cleared." % [_depth, _depth - 1])
+		_lose()
 	_refresh()
+
+
+func _lose() -> void:
+	_over = true
+	_log_msg("DEFEATED at depth %d. Score: %d enemies cleared." % [_depth, _depth - 1])
 
 
 func _select(token_index: int) -> void:
@@ -114,25 +129,30 @@ func _select(token_index: int) -> void:
 # --- rendering ---------------------------------------------------------------
 
 func _refresh() -> void:
-	_title.text = "LETTER-LADDER GAUNTLET    —    Depth %d" % _depth
-	_hpbar.max_value = START_HP
-	_hpbar.value = _hp
-	_hpbar.modulate = Color(0.35, 0.75, 0.4) if _hp > START_HP / 3 else Color(0.9, 0.35, 0.35)
+	_depth_label.text = "DEPTH %d" % _depth
+	_enemy_head.text = "ENEMY   ·   click a weapon tile (number = damage it deals)"
 
 	_render_sentence()
+
 	if _over:
-		_incoming.text = ""
+		_incoming.text = "GAME OVER"
 	else:
-		_incoming.text = "Its deadliest weapon will hit you for %d next turn.    (words spent this run: %d — no reuse)" % [
-			_battle.incoming_damage(), _battle.used.size()]
+		_incoming.text = "! its deadliest weapon will hit you for %d next turn" % _battle.incoming_damage()
+
 	if _over:
-		_selinfo.text = "GAME OVER — press New Run."
+		_selinfo.text = "Press New Run to try again."
 	elif _selected >= 0:
 		var tok: Dictionary = _battle.enemy.tokens[_selected]
-		_selinfo.text = "Disarming: %s   (letters: %s)   → type a noun (add or remove letters)" % [
+		_selinfo.text = "Disarming  %s  (letters: %s)  —  type a noun, adding or removing letters" % [
 			tok.get("text", ""), " ".join(_letters(tok.get("text", "")))]
 	else:
-		_selinfo.text = "Click a red weapon (noun) to target it."
+		_selinfo.text = "Pick a weapon to disarm."
+
+	_hpbar.max_value = START_HP
+	_hpbar.value = _hp
+	_hpbar.modulate = Color(0.4, 0.78, 0.45) if _hp > START_HP / 3 else Color(0.92, 0.36, 0.36)
+	_hp_label.text = "HP  %d / %d" % [_hp, START_HP]
+	_spent_label.text = "words spent: %d  (no reuse)" % _battle.used.size()
 	_log.text = "\n".join(_log_lines)
 
 
@@ -143,15 +163,10 @@ func _render_sentence() -> void:
 	var weapons := _battle.weapon_indices()
 	for i in range(tokens.size()):
 		var token: Dictionary = tokens[i]
+		# Weapons are clickable tiles; everything else (owner, adjectives, glue)
+		# is plain text coloured by sentiment.
 		if i in weapons and not _over:
-			var dmg := _battle.weapon_damage(i)
-			var btn := Button.new()
-			btn.text = "%s ⚔%d" % [token.get("text", ""), dmg]
-			btn.add_theme_font_size_override("font_size", 22)
-			btn.add_theme_color_override("font_color",
-				Color(1.0, 0.9, 0.3) if i == _selected else WordStyle.NEGATIVE)
-			btn.pressed.connect(_select.bind(i))
-			_row.add_child(btn)
+			_row.add_child(_weapon_tile(token.get("text", ""), _battle.weapon_damage(i), i == _selected, i))
 		else:
 			var lbl := Label.new()
 			lbl.text = token.get("text", "")
@@ -162,7 +177,7 @@ func _render_sentence() -> void:
 
 func _log_msg(text: String) -> void:
 	_log_lines.append(text)
-	if _log_lines.size() > 7:
+	if _log_lines.size() > 8:
 		_log_lines.pop_front()
 	if _log:
 		_log.text = "\n".join(_log_lines)
@@ -180,50 +195,54 @@ func _letters(w: String) -> Array:
 
 func _build_ui() -> void:
 	set_anchors_preset(Control.PRESET_FULL_RECT)
+	var bg := ColorRect.new()
+	bg.color = COL_BG
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(bg)
+
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for s in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + s, 26)
+		margin.add_theme_constant_override("margin_" + s, 24)
 	add_child(margin)
 
 	var col := VBoxContainer.new()
-	col.add_theme_constant_override("separation", 12)
+	col.add_theme_constant_override("separation", 14)
 	margin.add_child(col)
 
-	_title = _label("", 24)
-	_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	col.add_child(_title)
+	# Header: title + depth chip.
+	var header := HBoxContainer.new()
+	var title := _label("LETTER-LADDER GAUNTLET", 22)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+	_depth_label = _label("DEPTH 1", 22)
+	_depth_label.add_theme_color_override("font_color", COL_SELECT)
+	header.add_child(_depth_label)
+	col.add_child(header)
 
-	_hpbar = ProgressBar.new()
-	_hpbar.show_percentage = false
-	_hpbar.custom_minimum_size = Vector2(0, 20)
-	col.add_child(_hpbar)
-
-	col.add_child(HSeparator.new())
-
+	# --- ENEMY zone ---
+	var enemy_box := _zone(col)
+	_enemy_head = _label("", 14)
+	_enemy_head.add_theme_color_override("font_color", COL_MUTED)
+	enemy_box.add_child(_enemy_head)
 	_row = HFlowContainer.new()
 	_row.add_theme_constant_override("h_separation", 8)
-	_row.add_theme_constant_override("v_separation", 6)
-	var panel := PanelContainer.new()
-	var inner := MarginContainer.new()
-	for s in ["left", "right", "top", "bottom"]:
-		inner.add_theme_constant_override("margin_" + s, 12)
-	inner.add_child(_row)
-	panel.add_child(inner)
-	col.add_child(panel)
-
+	_row.add_theme_constant_override("v_separation", 8)
+	enemy_box.add_child(_row)
 	_incoming = _label("", 16)
-	_incoming.add_theme_color_override("font_color", Color(0.95, 0.6, 0.4))
-	col.add_child(_incoming)
+	_incoming.add_theme_color_override("font_color", Color(0.96, 0.62, 0.42))
+	enemy_box.add_child(_incoming)
 
+	# --- ACTION zone ---
 	_selinfo = _label("", 16)
+	_selinfo.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	col.add_child(_selinfo)
-
 	var controls := HBoxContainer.new()
-	controls.add_theme_constant_override("separation", 10)
+	controls.alignment = BoxContainer.ALIGNMENT_CENTER
+	controls.add_theme_constant_override("separation", 8)
 	_entry = LineEdit.new()
 	_entry.placeholder_text = "type a word…"
-	_entry.custom_minimum_size = Vector2(280, 0)
+	_entry.custom_minimum_size = Vector2(300, 0)
 	_entry.text_submitted.connect(func(_t): _on_disarm_pressed())
 	controls.add_child(_entry)
 	var go := Button.new()
@@ -236,13 +255,36 @@ func _build_ui() -> void:
 	controls.add_child(skip)
 	col.add_child(controls)
 
-	col.add_child(HSeparator.new())
+	# --- YOU zone ---
+	var you_box := _zone(col)
+	var you_head := _label("YOU", 14)
+	you_head.add_theme_color_override("font_color", COL_MUTED)
+	you_box.add_child(you_head)
+	var hp_row := HBoxContainer.new()
+	hp_row.add_theme_constant_override("separation", 12)
+	_hp_label = _label("", 18)
+	hp_row.add_child(_hp_label)
+	_hpbar = ProgressBar.new()
+	_hpbar.show_percentage = false
+	_hpbar.custom_minimum_size = Vector2(0, 18)
+	_hpbar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hp_row.add_child(_hpbar)
+	_spent_label = _label("", 14)
+	_spent_label.add_theme_color_override("font_color", COL_MUTED)
+	hp_row.add_child(_spent_label)
+	you_box.add_child(hp_row)
 
-	_log = _label("", 15)
+	# --- LOG (fills remaining space) + New Run ---
+	var log_box := _zone(col)
+	log_box.get_parent().size_flags_vertical = Control.SIZE_EXPAND_FILL
+	log_box.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_log = _label("", 14)
+	_log.add_theme_color_override("font_color", Color(0.8, 0.82, 0.88))
 	_log.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_log.custom_minimum_size = Vector2(0, 150)
 	_log.vertical_alignment = VERTICAL_ALIGNMENT_TOP
-	col.add_child(_log)
+	_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	log_box.add_child(_log)
+	col.add_child(log_box)
 
 	var restart := Button.new()
 	restart.text = "New Run"
@@ -252,8 +294,48 @@ func _build_ui() -> void:
 	col.add_child(center)
 
 
+## Add a rounded padded panel to `parent` and return its inner VBox to fill.
+## (Set the returned box's parent — box.get_parent() — to expand if it should grow.)
+func _zone(parent: Control) -> VBoxContainer:
+	var panel := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = COL_PANEL
+	sb.set_corner_radius_all(8)
+	sb.set_content_margin_all(14)
+	panel.add_theme_stylebox_override("panel", sb)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	panel.add_child(box)
+	parent.add_child(panel)
+	return box
+
+
 func _label(text: String, size: int) -> Label:
 	var l := Label.new()
 	l.text = text
 	l.add_theme_font_size_override("font_size", size)
 	return l
+
+
+## A clickable weapon word as a bordered tile: "word  N" (N = damage).
+func _weapon_tile(word: String, dmg: int, selected: bool, idx: int) -> Button:
+	var b := Button.new()
+	b.text = "%s   %d" % [word, dmg]
+	b.add_theme_font_size_override("font_size", 22)
+	var border := COL_SELECT if selected else WordStyle.NEGATIVE
+	var fill := Color(0.46, 0.18, 0.2) if selected else COL_WEAPON_FILL
+	for state in ["normal", "hover", "pressed", "focus"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = fill.lightened(0.12) if state == "hover" else fill
+		sb.set_border_width_all(2)
+		sb.border_color = border
+		sb.set_corner_radius_all(6)
+		sb.content_margin_left = 12
+		sb.content_margin_right = 12
+		sb.content_margin_top = 5
+		sb.content_margin_bottom = 5
+		b.add_theme_stylebox_override(state, sb)
+	b.add_theme_color_override("font_color", COL_SELECT if selected else Color(1.0, 0.82, 0.82))
+	b.add_theme_color_override("font_hover_color", Color.WHITE)
+	b.pressed.connect(_select.bind(idx))
+	return b
