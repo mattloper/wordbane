@@ -284,7 +284,6 @@ func _build_ui() -> void:
 	_log.vertical_alignment = VERTICAL_ALIGNMENT_TOP
 	_log.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	log_box.add_child(_log)
-	col.add_child(log_box)
 
 	var restart := Button.new()
 	restart.text = "New Run"
