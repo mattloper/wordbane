@@ -87,10 +87,10 @@ func _play_run(g: Gauntlet, vocab: int, seed_offset: int) -> int:
 ## If Focus is owned, fall back to the full dictionary as a hint.
 func _best_known_move(b: PoolBattle, maxlen: int, has_hint: bool) -> String:
 	for w in _known_words(b.letters(), maxlen):
-		if not (w in b.used):
+		if not (w in b.used) and not (w in b.weapons()):
 			return w  # list is pre-sorted best-damage first
 	if has_hint:
-		return _lexicon.best_word("".join(b.letters()), b.used)
+		return _lexicon.best_word("".join(b.letters()), b.used + b.weapons())
 	return ""
 
 

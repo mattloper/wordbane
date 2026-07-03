@@ -41,6 +41,8 @@ func begin(enemy_fighter: Dictionary, hp: int, max_hp: int) -> void:
 ## Idempotent: the Gauntlet seeds this at generation, so it survives the CLI's
 ## JSON save; this also covers hand-built/test enemies.
 static func seed_enemy(e: Dictionary) -> void:
+	if not e.has("weapons"):
+		e["weapons"] = weapon_words(e.get("tokens", []))
 	if not e.has("letters"):
 		e["letters"] = weapon_letters(e.get("tokens", []))
 	if not e.has("max_hp"):
@@ -49,6 +51,16 @@ static func seed_enemy(e: Dictionary) -> void:
 		e["hp"] = e["max_hp"]
 	if not e.has("base_bite"):
 		e["base_bite"] = max_bite(e.get("tokens", []))
+
+
+## The enemy's weapon nouns (lowercased). You can't just echo these back at it —
+## typing the weapon you can see is a one-shot cheat — so they're banned this fight.
+static func weapon_words(tokens: Array) -> Array:
+	var out: Array = []
+	for t in tokens:
+		if t.get("kind", "") == GameLogic.KIND_ITEM and t.get("sentiment", "") == GameLogic.NEGATIVE:
+			out.append(String(t.get("text", "")).to_lower())
+	return out
 
 
 ## The distinct letters across all of an enemy's weapon nouns (its negative items).
@@ -78,6 +90,10 @@ static func max_bite(tokens: Array) -> int:
 func letters() -> Array:
 	return enemy.get("letters", [])
 
+## The enemy's own weapon words — banned as moves this fight (no echoing them back).
+func weapons() -> Array:
+	return enemy.get("weapons", [])
+
 ## Remaining HP (drains as you land words; the letters themselves stay).
 func enemy_hp() -> int:
 	return int(enemy.get("hp", 0))
@@ -95,6 +111,16 @@ func incoming_damage() -> int:
 
 # --- moves -------------------------------------------------------------------
 
+## Validate a move WITHOUT applying it — bans the enemy's own weapon words, then
+## defers to the usual dictionary/letter/reuse rules. Same result shape as
+## Lexicon.validate, so the view can reuse it for a live preview.
+func check(word: String) -> Dictionary:
+	var w := word.strip_edges().to_lower()
+	if w in weapons():
+		return {"ok": false, "reason": "'%s' is the enemy's own weapon — use a different word" % w}
+	return lexicon.validate(word, "".join(letters()), used)
+
+
 ## Attempt to strike the enemy by typing `word`. Invalid words cost nothing (retry
 ## freely); a valid word deals its covered-letter damage, drains the HP bar, ends
 ## your turn, and the enemy strikes back. Returns a rich result for view/log.
@@ -103,7 +129,7 @@ func try_move(word: String) -> Dictionary:
 		return {"ok": false, "reason": "battle is over"}
 
 	var letters_str := "".join(letters())
-	var r := lexicon.validate(word, letters_str, used)
+	var r := check(word)
 	if not r.get("ok", false):
 		return r  # invalid — no turn consumed
 

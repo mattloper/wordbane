@@ -168,6 +168,11 @@ func _initialize() -> void:
 	# pool = distinct(axe + knife) = a,e,f,i,k,n,x ; HP = 1+1+4+1+5+1+8 = 21.
 	_check(lb.enemy_max_hp() == 21 and lb.enemy_hp() == 21, "enemy HP = total rarity weight of its letters (21)")
 	_check(lb.incoming_damage() == 3, "full bite = deadliest weapon (3)")
+	# You can't echo the enemy's own weapon word back at it — no turn spent.
+	_check(lb.weapons() == ["axe", "knife"], "battle exposes the enemy's weapon words")
+	var echo := lb.try_move("axe")
+	_check(not echo.get("ok", false) and lb.enemy_hp() == 21 and lb.player_hp == 30,
+		"typing the enemy's own weapon is rejected, costs no turn")
 	# 'fake' covers f+a+k+e = 4+1+5+1 = 11 -> HP 21 -> 10.
 	var m1 := lb.try_move("fake")
 	_check(m1.get("ok", false) and int(m1.dealt) == 11 and lb.enemy_hp() == 10,

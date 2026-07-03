@@ -159,7 +159,7 @@ func _on_skip_pressed() -> void:
 func _on_hint_pressed() -> void:
 	if _over or _choosing:
 		return
-	var w := _lexicon.best_word("".join(_battle.letters()), _battle.used)
+	var w := _lexicon.best_word("".join(_battle.letters()), _battle.used + _battle.weapons())
 	_selinfo.text = "Hint: try '%s'" % w if w != "" else "Hint: no fresh word found — Skip."
 
 
@@ -183,7 +183,7 @@ func _update_selinfo() -> void:
 	if typed == "":
 		_selinfo.text = head + "  ·  type any word using its letters"
 		return
-	var r := _lexicon.validate(typed, letters_str, _battle.used)
+	var r := _battle.check(typed)
 	if r.get("ok", false):
 		_selinfo.text = "%s  ·  '%s' deals %d  (uses %s)" % [head, typed.to_lower(),
 			int(r.dealt), ", ".join(Lexicon.upper_letters(Lexicon.covered_letters(typed, letters_str)))]
@@ -228,7 +228,7 @@ func _take_boon(id: String) -> void:
 func _refresh() -> void:
 	_chapter_label.text = "CHAPTER %d" % _chapter
 	_score_label.text = "SCORE %d" % _score
-	_enemy_head.text = "ENEMY   ·   spell words from its letters to drain its HP (rare letters hit hardest)"
+	_enemy_head.text = "ENEMY   ·   spell words from its letters — but not its own weapons (dimmed) — to drain its HP"
 
 	_render_enemy()
 
@@ -266,15 +266,21 @@ func _render_enemy() -> void:
 			owner_word = t.get("text", "")
 	_portrait.text = _icons.of(owner_word)
 
-	# Sentence (flavor): weapons red, creature with emoji, rest plain.
+	# Sentence (flavor): weapon words dimmed with a ✗ (off-limits this fight — you
+	# can't echo them back); creature with emoji; the rest plain.
 	for c in _sentence.get_children():
 		c.queue_free()
 	for token in tokens:
+		var is_weapon: bool = token.get("kind", "") == GameLogic.KIND_ITEM \
+			and token.get("sentiment", "") == GameLogic.NEGATIVE
 		var lbl := Label.new()
 		var emoji := _icons.of(token.get("text", "")) if token.get("kind", "") == GameLogic.KIND_CREATURE else ""
 		lbl.text = (emoji + " " + token.get("text", "")) if emoji != "" else token.get("text", "")
+		if is_weapon:
+			lbl.text = "✗" + lbl.text
 		lbl.add_theme_font_size_override("font_size", 20)
-		lbl.add_theme_color_override("font_color", WordStyle.color_for(token))
+		lbl.add_theme_color_override("font_color",
+			COL_MUTED if is_weapon else WordStyle.color_for(token))
 		_sentence.add_child(lbl)
 
 	# Letter pool: a tile per letter with its point value (rare ones highlighted).
