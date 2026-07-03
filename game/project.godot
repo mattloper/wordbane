@@ -6,7 +6,7 @@ config_version=5
 
 config/name="Wordplay"
 config/description="A word-battle game: click enemy words to randomize them and defang the foe."
-run/main_scene="res://main.tscn"
+run/main_scene="res://pool_gauntlet.tscn"
 config/features=PackedStringArray("4.6")
 
 [display]

@@ -8,28 +8,18 @@ extends RefCounted
 
 # Run tuning (single source of truth; the scene, CLI and solver all read these).
 const START_HP := 30
-const HEAL := 8               # HP regained per enemy cleared
 const MAX_ITEMS := 4
 const MIN_DANGER_MULT := 1.5  # only "dangerous" adjectives arm weapons
-const MIN_DISARMS := 10       # a weapon must have at least this many fair answers
 
 var _pools: Dictionary = {}
 var _rng := RandomNumberGenerator.new()
-var _usable_items: Array = []  # weapons with enough valid disarms (set in setup)
+var _usable_items: Array = []  # weapon pool (set in setup)
 
 
-## `ladder` is optional; if given, weapons with too few disarms (e.g. 'jinx') are
-## filtered out so every fight is fairly solvable.
-func setup(bank: Dictionary, ladder: WordLadder = null) -> void:
+func setup(bank: Dictionary) -> void:
 	_pools = bank.get("pools", {})
 	_rng.randomize()
-	var all_items: Array = _neg(GameLogic.KIND_ITEM)
-	_usable_items = []
-	for it in all_items:
-		if ladder == null or ladder.count_transforms(it.get("text", ""), "noun", MIN_DISARMS) >= MIN_DISARMS:
-			_usable_items.append(it)
-	if _usable_items.is_empty():
-		_usable_items = all_items  # safety: never leave the pool empty
+	_usable_items = _neg(GameLogic.KIND_ITEM)
 
 
 func _neg(kind: String) -> Array:
@@ -74,20 +64,24 @@ func generate(round: int) -> Dictionary:
 		tokens.append(_fixed("a"))
 		tokens.append(_adj(_pick(adjs), "item:%d" % i))
 		var item: Dictionary = items[i % items.size()]
-		# Weapons hit harder the deeper you go (+1 base every 3 chapters), so even
-		# a perfect player eventually out-paces healing — a ceiling for everyone.
-		var scaled_base: int = int(item.get("base", 2)) + int((round - 1) / 3.0)
+		# Weapons hit harder the deeper you go (+1 base every 2 chapters). Since a
+		# strong player bursts enemies down in a turn or two, the per-turn bite is the
+		# real ceiling — it must climb fast enough to out-pace healing eventually.
+		var scaled_base: int = int(item.get("base", 2)) + int((round - 1) / 2.0)
 		tokens.append({"text": item.get("text", "blade"), "kind": GameLogic.KIND_ITEM,
 			"sentiment": GameLogic.NEGATIVE, "item_type": item.get("item_type", "hp_attack"),
 			"base": scaled_base, "item_index": i})
 
-	return {
+	var enemy := {
 		"name": String(creature.get("text", "foe")).capitalize(),
 		"role": "enemy",
 		"tokens": tokens,
 		"item_order": range(num_items),
 		"round": round,
 	}
+	# Seed the letter pool / HP / bite now, so they survive the CLI's JSON save.
+	PoolBattle.seed_enemy(enemy)
+	return enemy
 
 
 func _fixed(text: String) -> Dictionary:

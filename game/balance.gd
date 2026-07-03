@@ -2,11 +2,11 @@
 ##
 ## Auto-plays the gauntlet to measure the difficulty curve after tuning changes.
 ## Models a LIMITED-VOCABULARY player: for each weapon they know only the K
-## easiest (shortest, then alphabetical) disarms — a rough proxy for what a person
-## can actually think of. With run-wide no-reuse, those known words get spent, so
-## the player eventually must Skip (take a hit) — which is the real new difficulty.
+## hardest-hitting shared-letter words — a rough proxy for what a person can
+## actually think of. With run-wide no-reuse, those known words get spent, so the
+## player eventually must Skip (take a hit) — which is the real new difficulty.
 ##
-## Reports reached depth for several vocab sizes K, so you can tune HP/HEAL/ramp
+## Reports reached depth for several vocab sizes K, so you can tune HP/bite/ramp
 ## (in Gauntlet) against a realistic player, not a perfect solver.
 ##
 ##   godot --headless --script res://balance.gd
@@ -14,19 +14,21 @@ extends SceneTree
 
 const RUNS := 60
 const DEPTH_CAP := 60
-const VOCAB_SIZES := [4, 6, 8, 999]  # 999 ≈ perfect vocabulary
+# Vocabulary modelled as the max word LENGTH a player commands: everyone knows
+# short words; fewer know long ones. 99 = knows every word (a perfect speller).
+const VOCAB_LENS := [3, 4, 5, 99]
 
-var _ladder: WordLadder
-var _disarm_cache: Dictionary = {}  # weapon word -> [disarms, easiest first]
+var _lexicon: Lexicon
+var _known_cache: Dictionary = {}  # "letters|maxlen" -> [words, best damage first]
 
 
 func _initialize() -> void:
-	_ladder = WordLadder.load_from("res://data/dictionary.json")
+	_lexicon = Lexicon.load_from("res://data/dictionary.json")
 	var g := Gauntlet.new()
-	g.setup(GameLogic.load_bank("res://data/word_bank.json"), _ladder)
+	g.setup(GameLogic.load_bank("res://data/word_bank.json"))
 
-	print("Tuning: START_HP=%d HEAL=%d" % [Gauntlet.START_HP, Gauntlet.HEAL])
-	for k in VOCAB_SIZES:
+	print("Tuning: START_HP=%d" % Gauntlet.START_HP)
+	for k in VOCAB_LENS:
 		var depths: Array = []
 		for run in range(RUNS):
 			depths.append(_play_run(g, k, run))
@@ -34,7 +36,7 @@ func _initialize() -> void:
 		var sum := 0.0
 		for d in depths:
 			sum += d
-		var label: String = "perfect" if k >= 999 else str(k)
+		var label: String = "any-len" if k >= 99 else "len<=%d" % k
 		print("  vocab=%-7s depth: min=%2d median=%2d max=%2d mean=%.1f" % [
 			label, depths[0], depths[depths.size() / 2], depths[-1], sum / depths.size()])
 	quit(0)
@@ -42,7 +44,7 @@ func _initialize() -> void:
 
 ## Play one run with a K-word-per-weapon vocabulary; return depth reached.
 ## Recovery now comes only from boons (no free heal) — the player heals when low,
-## else grows. Models Focus (a hint) as being able to find ANY word for one weapon.
+## else grows. Models Focus (a hint) as being able to find ANY word for the pool.
 func _play_run(g: Gauntlet, vocab: int, seed_offset: int) -> int:
 	var hp: int = Gauntlet.START_HP
 	var max_hp: int = Gauntlet.START_HP
@@ -51,65 +53,62 @@ func _play_run(g: Gauntlet, vocab: int, seed_offset: int) -> int:
 	var depth := 0
 	while depth < DEPTH_CAP:
 		depth += 1
-		var b := LadderBattle.new()
-		b.ladder = _ladder
+		var b := PoolBattle.new()
+		b.lexicon = _lexicon
 		b.begin(g.generate(depth), hp, max_hp)
 		b.used = used
 		var safety := 0
-		while b.state == LadderBattle.STATE_PLAY and safety < 40:
+		while b.state == PoolBattle.STATE_PLAY and safety < 60:
 			safety += 1
 			var word := _best_known_move(b, vocab, has_hint)
 			if word.is_empty():
 				b.pass_turn()  # no findable word — eat a hit
 			else:
-				b.try_move(word[0], word[1])
-		if b.state == LadderBattle.STATE_LOST:
-			break
+				b.try_move(word)
+		if b.state != PoolBattle.STATE_WON:
+			break  # lost, or stuck (couldn't drain the pool) — run ends
 		hp = b.player_hp
 		# Pick a boon: heal when low, else grow, else relieve vocab, else hint.
-		var offer: Array = ["tough", "mend", "eraser"] if has_hint else ["tough", "mend", "eraser", "focus"]
+		var offer: Array = Boons.ids() if not has_hint else Boons.ids().filter(func(x): return x != "focus")
+		var pick := "focus"
 		if hp <= max_hp * 0.45 and "mend" in offer:
-			hp = max_hp
+			pick = "mend"
 		elif "tough" in offer:
-			max_hp += 6; hp = mini(max_hp, hp + 6)
+			pick = "tough"
 		elif "eraser" in offer:
-			used = []
-		else:
-			has_hint = true
+			pick = "eraser"
+		var s := {"hp": hp, "max_hp": max_hp, "used": used, "has_hint": has_hint}
+		Boons.apply(pick, s)
+		hp = int(s.hp); max_hp = int(s.max_hp); used = s.used; has_hint = bool(s.has_hint)
 	return depth
 
 
-## Pick the deadliest weapon we can disarm. Uses the K-word vocab; if Focus is
-## owned, falls back to the full dictionary for the deadliest weapon (a hint).
-func _best_known_move(b: LadderBattle, vocab: int, has_hint: bool) -> Array:
-	var weps := b.weapon_indices()
-	weps.sort_custom(func(a, c): return b.weapon_damage(a) > b.weapon_damage(c))
-	for wi in weps:
-		var target: String = b.enemy.tokens[wi].text
-		for w in _known_disarms(target, vocab):
-			if not (w in b.used):
-				return [wi, w]
-	if has_hint and not weps.is_empty():
-		var w := _ladder.find_transform(b.enemy.tokens[weps[0]].text, "noun", b.used)
-		if w != "":
-			return [weps[0], w]
-	return []
+## The highest-damage fresh word (within our max-length vocabulary) for this enemy.
+## If Focus is owned, fall back to the full dictionary as a hint.
+func _best_known_move(b: PoolBattle, maxlen: int, has_hint: bool) -> String:
+	for w in _known_words(b.letters(), maxlen):
+		if not (w in b.used):
+			return w  # list is pre-sorted best-damage first
+	if has_hint:
+		return _lexicon.best_word("".join(b.letters()), b.used)
+	return ""
 
 
-## The K easiest disarms a player would know for a weapon (cached).
-func _known_disarms(target: String, vocab: int) -> Array:
-	if not _disarm_cache.has(target):
+## Every word within our max length that uses this enemy's letters, best-damage
+## first (cached by letter-set + maxlen). Models "the words a player commands".
+func _known_words(letters: Array, maxlen: int) -> Array:
+	var key: String = "".join(letters) + "|" + str(maxlen)
+	if not _known_cache.has(key):
+		var letters_str: String = "".join(letters)
+		var scored: Array = []  # [word, damage]
+		for w in _lexicon.words:
+			if w.length() <= maxlen:
+				var d := Lexicon.overlap_damage(w, letters_str)
+				if d > 0:
+					scored.append([w, d])
+		scored.sort_custom(func(a, c): return a[1] > c[1] if a[1] != c[1] else a[0].length() < c[0].length())
 		var found: Array = []
-		for w in _ladder.words:
-			var m: Dictionary = _ladder.words[w]
-			if w == target or m.get("sentiment", "") == "negative" or not ("noun" in m.get("pos", [])):
-				continue
-			var grew: bool = w.length() > target.length() and WordLadder.is_submultiset(target, w)
-			var shrank: bool = w.length() < target.length() and WordLadder.is_submultiset(w, target)
-			if grew or shrank:
-				found.append(w)
-		# easiest first: shorter, then alphabetical
-		found.sort_custom(func(a, c): return a.length() < c.length() if a.length() != c.length() else a < c)
-		_disarm_cache[target] = found
-	var all: Array = _disarm_cache[target]
-	return all.slice(0, mini(vocab, all.size()))
+		for pair in scored:
+			found.append(pair[0])
+		_known_cache[key] = found
+	return _known_cache[key]

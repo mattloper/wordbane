@@ -1,11 +1,11 @@
-## Headless CLI to play the full letter-ladder gauntlet from the command line.
+## Headless CLI to play the full letter-pool gauntlet from the command line.
 ##
-## Drives the real LadderBattle + Gauntlet + WordLadder; run state persists between
+## Drives the real PoolBattle + Gauntlet + Lexicon; run state persists between
 ## invocations in a JSON file, so each call is one move.
 ##
 ##   godot --headless --script res://play.gd -- new
 ##   godot --headless --script res://play.gd -- state
-##   godot --headless --script res://play.gd -- move <index> <word>
+##   godot --headless --script res://play.gd -- move <word>
 ##   godot --headless --script res://play.gd -- pass
 extends SceneTree
 
@@ -13,25 +13,17 @@ const BANK_PATH := "res://data/word_bank.json"
 const DICT_PATH := "res://data/dictionary.json"
 const STATE_PATH := "user://wp_run.json"
 const START_HP := Gauntlet.START_HP
-const HEAL := Gauntlet.HEAL
 
-const BOONS := {
-	"tough": "Toughness (+6 Max HP)",
-	"mend": "Mend (heal to full)",
-	"eraser": "Eraser (forget all spent words)",
-	"focus": "Focus (a hint each fight)",
-}
-
-var _ladder: WordLadder
+var _lexicon: Lexicon
 var _gauntlet: Gauntlet
 var _rng := RandomNumberGenerator.new()
 
 
 func _initialize() -> void:
 	_rng.randomize()
-	_ladder = WordLadder.load_from(DICT_PATH)
+	_lexicon = Lexicon.load_from(DICT_PATH)
 	_gauntlet = Gauntlet.new()
-	_gauntlet.setup(GameLogic.load_bank(BANK_PATH), _ladder)
+	_gauntlet.setup(GameLogic.load_bank(BANK_PATH))
 	var args := OS.get_cmdline_user_args()
 	var cmd: String = args[0] if args.size() > 0 else "state"
 	match cmd:
@@ -58,13 +50,13 @@ func _cmd_move(args: Array) -> void:
 		print("No active run. Run: new"); return
 	if run.get("choosing", false):
 		print("Pick a reward first:  boon <id>"); _print_run(run); return
-	if args.size() < 3:
-		print("usage: move <index> <word>"); return
+	if args.size() < 2:
+		print("usage: move <word>"); return
 	var battle := _battle_from(run)
-	var word := String(args[2])
-	var res := battle.try_move(int(args[1]), word)
+	var word := String(args[1])
+	var res := battle.try_move(word)
 	if res.get("ok", false) and not res.get("passed", false):
-		run.score = int(run.score) + word.length() * 5
+		run.score = int(run.score) + int(res.get("dealt", 0)) * 3
 	_after_move(run, battle, res)
 
 
@@ -84,11 +76,12 @@ func _cmd_boon(args: Array) -> void:
 	var id: String = String(args[1]) if args.size() > 1 else ""
 	if not (id in run.boons):
 		print("Choose one of: %s" % ", ".join(run.boons)); return
-	match id:
-		"tough": run.max = int(run.max) + 6; run.hp = mini(int(run.max), int(run.hp) + 6)
-		"mend": run.hp = run.max
-		"eraser": run.used = []
-		"focus": run.has_hint = true
+	var s := {"hp": run.hp, "max_hp": run.max, "used": run.used, "has_hint": run.has_hint}
+	Boons.apply(id, s)
+	run.hp = s.hp
+	run.max = s.max_hp
+	run.used = s.used
+	run.has_hint = s.has_hint
 	run.choosing = false
 	run.boons = []
 	run.depth = int(run.depth) + 1
@@ -98,8 +91,8 @@ func _cmd_boon(args: Array) -> void:
 	_print_run(run)
 
 
-## Apply a battle result back into the run: log it, advance/heal on win, end on loss.
-func _after_move(run: Dictionary, battle: LadderBattle, res: Dictionary) -> void:
+## Apply a battle result back into the run: log it, advance on win, end on loss.
+func _after_move(run: Dictionary, battle: PoolBattle, res: Dictionary) -> void:
 	if not res.get("ok", false):
 		print("REJECTED: " + str(res.get("reason", "invalid")))
 		_print_run(run)  # unchanged
@@ -113,9 +106,9 @@ func _after_move(run: Dictionary, battle: LadderBattle, res: Dictionary) -> void
 	if res.get("passed", false):
 		print("You hesitate — enemy strikes for %d." % res.damage)
 	else:
-		var note := ("  (calmed %s)" % ", ".join(res.calmed)) if not res.calmed.is_empty() else ""
-		print("YOU: %s -> %s  [%s, %s]%s" % [
-			res.target, res.word, res.direction, res.sentiment, note])
+		var uses := ("  [uses %s]" % ", ".join(Lexicon.upper_letters(res.covered))) if not res.covered.is_empty() else ""
+		var tail := "  (enemy HP %d left)" % int(res.hp_left) if not res.get("won", false) else "  -- ENEMY DOWN!"
+		print("YOU: %s hits for %d%s%s" % [res.word, int(res.dealt), uses, tail])
 		if int(res.damage) > 0:
 			print("ENEMY strikes for %d." % res.damage)
 
@@ -133,7 +126,7 @@ func _after_move(run: Dictionary, battle: LadderBattle, res: Dictionary) -> void
 		print("\n*** CHAPTER %d CLEARED! +%d score. Choose a reward: ***" % [
 			run.depth, int(run.depth) * 25])
 		for id in run.boons:
-			print("    boon %-7s  %s" % [id, BOONS[id]])
+			print("    boon %-7s  %s" % [id, Boons.describe(id)])
 		return
 
 	_save(run)
@@ -142,7 +135,7 @@ func _after_move(run: Dictionary, battle: LadderBattle, res: Dictionary) -> void
 
 ## Pick 3 random boon ids to offer (excluding Focus once owned).
 func _offer_boons(run: Dictionary) -> Array:
-	var pool: Array = BOONS.keys()
+	var pool: Array = Boons.ids()
 	if run.get("has_hint", false):
 		pool.erase("focus")
 	pool.shuffle()
@@ -151,14 +144,14 @@ func _offer_boons(run: Dictionary) -> Array:
 
 # --- helpers -----------------------------------------------------------------
 
-func _battle_from(run: Dictionary) -> LadderBattle:
-	var b := LadderBattle.new()
-	b.ladder = _ladder
+func _battle_from(run: Dictionary) -> PoolBattle:
+	var b := PoolBattle.new()
+	b.lexicon = _lexicon
 	b.enemy = run.enemy
 	b.player_hp = int(run.hp)
 	b.player_max = int(run.max)
 	b.used = run.used
-	b.state = LadderBattle.STATE_PLAY
+	b.state = PoolBattle.STATE_PLAY
 	return b
 
 
@@ -171,34 +164,22 @@ func _print_run(run: Dictionary) -> void:
 	if run.get("choosing", false):
 		print("  Chapter cleared — choose a reward:")
 		for id in run.boons:
-			print("    boon %-7s  %s" % [id, BOONS[id]])
+			print("    boon %-7s  %s" % [id, Boons.describe(id)])
 		return
 	var tokens: Array = run.enemy.tokens
 	var parts: Array = []
-	for i in range(tokens.size()):
-		var t: Dictionary = tokens[i]
-		if t.get("kind", "") == GameLogic.KIND_FIXED:
-			parts.append(t.get("text", ""))
-		else:
-			var sign: String = {"positive": "+", "negative": "-", "neutral": "0"}.get(t.get("sentiment", ""), "?")
-			parts.append("[%d]%s(%s)" % [i, t.get("text", ""), sign])
-	print("  " + " ".join(parts))
-	var weapons := battle.weapon_indices()
-	print("  incoming damage next turn: %d   (weapons: %d)" % [battle.incoming_damage(), weapons.size()])
-	for i in weapons:
-		var t: Dictionary = tokens[i]
-		print("    [%d] %s  (⚔%d)  letters: %s" % [
-			i, t.get("text", ""), battle.weapon_damage(i), " ".join(_letters(t.get("text", "")))])
+	for t in tokens:
+		parts.append(t.get("text", ""))
+	print("  " + " ".join(parts))  # the enemy sentence (flavor)
+	print("  enemy HP %d/%d    bites for %d next turn" % [
+		battle.enemy_hp(), battle.enemy_max_hp(), battle.incoming_damage()])
+	# The letter pool (a damage guide): each letter with its point value.
+	var tiles: Array = []
+	for ch in run.enemy.get("letters", []):
+		tiles.append("%s:%d" % [String(ch).to_upper(), Lexicon.letter_weight(ch)])
+	print("  letters: " + "  ".join(tiles))
 	if not (run.used as Array).is_empty():
 		print("  used: " + ", ".join(run.used))
-
-
-func _letters(w: String) -> Array:
-	var chars: Array = []
-	for ch in w.to_lower():
-		chars.append(ch)
-	chars.sort()
-	return chars
 
 
 func _save(run: Dictionary) -> void:

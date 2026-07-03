@@ -103,12 +103,13 @@ wordplay/
     ├── core/                    # view-agnostic logic (class_name globals)
     │   ├── game_logic.gd        #   GameLogic — pure combat rules
     │   ├── battle.gd            #   Battle — item-combat turn machine (older mode)
-    │   ├── word_ladder.gd       #   WordLadder — typed-word transform validator
-    │   ├── ladder_battle.gd     #   LadderBattle — one disarm-the-weapons fight
+    │   ├── lexicon.gd           #   Lexicon — dictionary + letter-rarity scoring
+    │   ├── pool_battle.gd       #   PoolBattle — one drain-the-letter-pool fight
+    │   ├── boons.gd             #   Boons — between-chapter reward catalog + effects
     │   ├── gauntlet.gd          #   Gauntlet — escalating enemy generator
     │   ├── combat_text.gd       #   CombatText — shared phrasing
     │   └── word_style.gd        #   WordStyle — shared word colours
-    ├── ladder.tscn / ladder.gd  # ★ Letter-Ladder Gauntlet — the current game
+    ├── pool_gauntlet.tscn / .gd # ★ Letter-Pool Gauntlet — the current game
     ├── play.gd                  # headless CLI to play the gauntlet
     ├── main.tscn / main.gd      # 2D item-combat view (older mode)
     ├── world.tscn / world.gd    # 3D item-combat view (older mode)
@@ -118,27 +119,31 @@ wordplay/
         └── dictionary.json      # 50k words -> {pos, sentiment} (generated)
 ```
 
-## The game: Letter-Ladder Gauntlet
+## The game: Letter-Pool Gauntlet
 
-`godot --path game ladder.tscn` (or play it headless via `play.gd`, below).
+`godot --path game pool_gauntlet.tscn` (or play it headless via `play.gd`, below).
 
-Descend a gauntlet of escalating enemies. Each enemy's **weapons are its red
-nouns**; every turn the survivors damage you (`base × adjective multiplier`). On
-your turn, click a weapon and **type a real word made from its letters** — add OR
-remove letters (a *word ladder*), same part of speech — to disarm it. Disarm them
-all to descend; HP carries between fights with a small heal per victory. You lose
-when HP hits 0, and your score is the depth reached.
+Descend a gauntlet of escalating enemies. Each enemy shows a **pool of letters**
+(the distinct letters of its red weapon-nouns) and an **HP bar** equal to their
+total rarity weight — common letters (`e a t`) score 1, rare ones a lot (`k`=5,
+`j x`=8, `q z`=10). On your turn **type ANY real word that uses at least one of its
+letters**; it deals damage equal to the **rarity weight of the letters it covers**,
+draining the bar. Rare letters are a big burst (landing an `X` is +8) but never
+required — you can whittle any enemy down with common letters, so you never get
+walled. Drain HP to 0 to descend. Every turn the enemy hits you for a flat amount
+that climbs with depth, so drawn-out fights cost you. HP recovers only via boons;
+you lose at 0 HP, and your score rewards the damage you deal + the depth you reach.
 
-Why it takes thought: you must (a) find a valid word (vocabulary), (b) disarm the
-*biggest* threats first to minimise incoming damage (ordering), and (c) never
-reuse a word, so variety runs down. Short weapons (`hex`, `axe`) have no shorter
-word, forcing you to *grow* them — the hardest puzzles.
+Why it takes thought: you must (a) find a hard-hitting word from its letters
+(vocabulary), (b) kill fast — every extra turn is another full hit — and (c) never
+reuse a word, so variety runs down. The rare tiles (`j x q z`) are where the big,
+run-defining hits come from.
 
 ### Play it from the command line (`play.gd`)
 
 ```bash
 godot --headless --path game --script res://play.gd -- new
-godot --headless --path game --script res://play.gd -- move <index> <word>
+godot --headless --path game --script res://play.gd -- move <word>
 godot --headless --path game --script res://play.gd -- pass
 ```
 Run state persists between calls, so each invocation is one move.

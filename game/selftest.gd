@@ -118,83 +118,92 @@ func _initialize() -> void:
 		_check(battle.state == Battle.ST_TARGET, "word-attack item enters targeting mode")
 	battle.queue_free()
 
-	# --- WordLadder validation (letter-ladder mechanic) ---
-	_check(WordLadder.is_submultiset("fine", "knife"), "'fine' is a sub-multiset of 'knife'")
-	_check(not WordLadder.is_submultiset("fix", "knife"), "'fix' is NOT a sub-multiset of 'knife' (no x)")
+	# --- Lexicon: letter rarity, damage, validation (letter-overlap mechanic) ---
+	_check(Lexicon.letter_weight("e") == 1 and Lexicon.letter_weight("x") == 8
+		and Lexicon.letter_weight("z") == 10, "rare letters weigh more than common ones")
+	# 'hex' = h(4)+e(1)+x(8) = 13 HP; 'rat' = r+a+t = 3 HP.
+	_check(Lexicon.word_weight("hex") == 13, "weapon HP = summed letter weights ('hex' = 13)")
+	_check(Lexicon.word_weight("rat") == 3, "'rat' HP = 3")
+	# Distinct letters only: repeats don't double-count.
+	_check(Lexicon.word_weight("otto") == 2, "distinct-letter HP ('otto' = o+t = 2)")
+	_check(Lexicon.shares_letter("art", "rat") and not Lexicon.shares_letter("dog", "rat"),
+		"shares_letter detects a common letter")
+	# 'vex' vs 'hex': covers e(1)+x(8) but not h -> 9 of 13 damage.
+	_check(Lexicon.overlap_damage("vex", "hex") == 9, "damage = weight of covered letters (vex vs hex = 9)")
+	_check(Lexicon.overlap_damage("art", "rat") == 3, "full-coverage word deals full HP (art vs rat = 3)")
 
-	var wl := WordLadder.load_from("res://data/dictionary.json")
+	var wl := Lexicon.load_from("res://data/dictionary.json")
 	_check(not wl.words.is_empty(), "dictionary loads")
 	_check(wl.is_word("knife") and wl.is_word("fine"), "known words present")
 
-	# knife -> fin: a valid same-POS shrink (noun -> noun), direction auto-detected.
-	var shrink := wl.validate("fin", "knife", "noun", [])
-	_check(shrink.get("ok", false) and shrink.get("direction", "") == "shrink",
-		"shrink knife->fin is valid (noun->noun)")
-	# wolf -> airflow: a valid same-POS grow (bidirectional escapes dead-ends).
-	var grow := wl.validate("airflow", "wolf", "noun", [])
-	_check(grow.get("ok", false) and grow.get("direction", "") == "grow",
-		"grow wolf->airflow is valid (noun->noun)")
-	# POS mismatch is rejected: 'fin' is a noun, not an adjective.
-	var posbad := wl.validate("fin", "knife", "adjective", [])
-	_check(not posbad.get("ok", false), "POS mismatch (fin as adjective) is rejected")
-	# Multi-POS now accepted: 'fan' is tagged noun+verb, valid for a noun slot.
-	var multi := wl.validate("fan", "fang", "noun", [])
-	_check(multi.get("ok", false), "multi-POS 'fan' accepted for a noun slot (fang->fan)")
+	# Any real word sharing a letter is valid; result carries its damage.
+	var hit := wl.validate("fine", "knife", [])
+	_check(hit.get("ok", false) and int(hit.get("dealt", 0)) == Lexicon.overlap_damage("fine", "knife"),
+		"a shared-letter word is a valid strike carrying its damage")
+	# No shared letter is rejected.
+	var nomatch := wl.validate("gum", "knife", [])
+	_check(not nomatch.get("ok", false), "a word with no shared letter is rejected")
+	# Not-a-word is rejected.
+	var nonword := wl.validate("zzzq", "knife", [])
+	_check(not nonword.get("ok", false), "a non-dictionary word is rejected")
 	# Reuse is rejected.
-	var reuse := wl.validate("fin", "knife", "noun", ["fin"])
+	var reuse := wl.validate("fine", "knife", ["fine"])
 	_check(not reuse.get("ok", false), "reused word is rejected")
-	# Substitution (not pure add/remove) is rejected.
-	var subst := wl.validate("wife", "knife", "noun", [])
-	_check(not subst.get("ok", false), "substitution (knife->wife) is rejected")
+	# Hint finds a real, fresh, shared-letter word.
+	var hint := wl.best_word("knife", [])
+	_check(hint != "" and wl.is_word(hint) and Lexicon.shares_letter(hint, "knife"),
+		"best_word returns a real shared-letter word")
 
-	# --- LadderBattle: disarm, enemy damage, win ---
-	var lb := LadderBattle.new()
-	lb.ladder = wl
+	# --- PoolBattle: letter pool, drain damage, flat bite, win ---
+	var lb := PoolBattle.new()
+	lb.lexicon = wl
 	var foe := {"name": "Test", "tokens": [
 		{"text": "A", "kind": GameLogic.KIND_FIXED},
-		{"text": "knife", "kind": GameLogic.KIND_ITEM, "sentiment": GameLogic.NEGATIVE,
-			"item_type": "hp_attack", "base": 2, "item_index": 0},   # ⚔2
 		{"text": "axe", "kind": GameLogic.KIND_ITEM, "sentiment": GameLogic.NEGATIVE,
-			"item_type": "hp_attack", "base": 3, "item_index": 1},   # ⚔3
+			"item_type": "hp_attack", "base": 3, "item_index": 0},   # bite 3
+		{"text": "knife", "kind": GameLogic.KIND_ITEM, "sentiment": GameLogic.NEGATIVE,
+			"item_type": "hp_attack", "base": 2, "item_index": 1},   # bite 2
 	]}
-	lb.begin(foe, 10, 10)
-	_check(lb.incoming_damage() == 3, "incoming damage = deadliest weapon (max of 2,3)")
-	var d1 := lb.try_move(2, "axle")  # disarm axe(3); surviving knife(2) now deadliest
-	_check(d1.get("ok", false) and lb.player_hp == 8, "disarm axe, take knife's 2 damage")
-	var d2 := lb.try_move(1, "fin")   # disarm knife; none left -> win, no damage
-	_check(d2.get("won", false) and lb.state == LadderBattle.STATE_WON, "disarm all weapons -> win")
+	lb.begin(foe, 30, 30)
+	# pool = distinct(axe + knife) = a,e,f,i,k,n,x ; HP = 1+1+4+1+5+1+8 = 21.
+	_check(lb.enemy_max_hp() == 21 and lb.enemy_hp() == 21, "enemy HP = total rarity weight of its letters (21)")
+	_check(lb.incoming_damage() == 3, "full bite = deadliest weapon (3)")
+	# 'fake' covers f+a+k+e = 4+1+5+1 = 11 -> HP 21 -> 10.
+	var m1 := lb.try_move("fake")
+	_check(m1.get("ok", false) and int(m1.dealt) == 11 and lb.enemy_hp() == 10,
+		"a word drains HP by the letters it covers (deals 11)")
+	_check(("a" in lb.letters()) and ("x" in lb.letters()), "letters persist as a guide (not consumed)")
+	_check(lb.incoming_damage() == 3, "bite is flat while alive (still 3)")
+	_check(lb.player_hp == 27, "enemy struck back for its full 3")
+	# A word using none of the enemy's letters is rejected — no turn spent.
+	var miss := lb.try_move("mob")
+	_check(not miss.get("ok", false) and lb.player_hp == 27, "a word sharing no letter is rejected")
+	# Common letters keep chipping (they persist): 'fan' covers f+a+n = 6 -> HP 4.
+	var m2 := lb.try_move("fan")
+	_check(int(m2.dealt) == 6 and lb.enemy_hp() == 4 and lb.player_hp == 24,
+		"you can whittle HP with common letters (no rare-letter wall)")
+	# 'ink' covers i+n+k = 1+1+5 = 7 >= 4 -> HP 0 -> win.
+	var m3 := lb.try_move("ink")
+	_check(m3.get("won", false) and lb.state == PoolBattle.STATE_WON, "draining HP to 0 -> win")
 
-	# A still-negative transform doesn't disarm — it must be rejected (no wasted turn).
-	var lb2 := LadderBattle.new()
-	lb2.ladder = wl
-	lb2.begin({"tokens": [{"text": "curse", "kind": GameLogic.KIND_ITEM,
-		"sentiment": GameLogic.NEGATIVE, "item_type": "hp_attack", "base": 2, "item_index": 0}]}, 10, 10)
-	var neg := lb2.try_move(0, "cur")  # 'cur' is a valid noun ladder but still negative
-	_check(not neg.get("ok", false) and lb2.player_hp == 10,
-		"negative-word 'disarm' is rejected, costs no turn")
-
-	# --- solvability: 'jinx' is a near-dead-end, 'spear' is rich ---
-	_check(wl.count_transforms("jinx", "noun", 10) < 10, "'jinx' has few disarms (unfair)")
-	_check(wl.count_transforms("spear", "noun", 10) >= 10, "'spear' has plenty of disarms")
-
-	# --- Gauntlet: escalating, distinct, fairly-solvable weapons ---
+	# --- Gauntlet: escalating, distinct weapons, seeded letter pool ---
 	var g := Gauntlet.new()
-	g.setup(bank, wl)
+	g.setup(bank)
 	var e := g.generate(3)
 	var weps: Array = []
 	for t in e.tokens:
 		if t.get("kind", "") == GameLogic.KIND_ITEM:
 			weps.append(t.get("text", ""))
 	_check(weps.size() >= 2, "gauntlet enemy has multiple weapons")
+	_check(e.has("letters") and not (e.letters as Array).is_empty(),
+		"gauntlet seeds the enemy's letter pool")
+	_check(int(e.max_hp) == Lexicon.letters_weight(e.letters)
+		and int(e.hp) == int(e.max_hp) and int(e.base_bite) > 0,
+		"gauntlet seeds enemy HP (letter weight, full) and bite")
 	var uniq := {}
 	for w in weps:
 		uniq[w] = true
 	_check(uniq.size() == weps.size(), "gauntlet weapons are distinct (no duplicates)")
-	var all_solvable := true
-	for w in weps:
-		if wl.count_transforms(w, "noun", Gauntlet.MIN_DISARMS) < Gauntlet.MIN_DISARMS:
-			all_solvable = false
-	_check(all_solvable, "every gauntlet weapon is fairly solvable (no 'jinx')")
 
 	# --- IconBank: emoji clipart for known words ---
 	var icons := IconBank.new()
