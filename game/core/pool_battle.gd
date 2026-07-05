@@ -1,4 +1,4 @@
-## One letter-pool battle: drain the enemy's letters before it grinds you down.
+## One letter-pool battle: drain the enemy's HP before it grinds you down.
 ##
 ## The enemy is a POOL OF LETTERS — the distinct letters across all its weapon
 ## nouns — and an HP bar equal to the total rarity weight of those letters (common
@@ -58,7 +58,7 @@ static func seed_enemy(e: Dictionary) -> void:
 static func weapon_words(tokens: Array) -> Array:
 	var out: Array = []
 	for t in tokens:
-		if t.get("kind", "") == GameLogic.KIND_ITEM and t.get("sentiment", "") == GameLogic.NEGATIVE:
+		if t.get("kind", "") == WordBank.KIND_ITEM and t.get("sentiment", "") == WordBank.NEGATIVE:
 			out.append(String(t.get("text", "")).to_lower())
 	return out
 
@@ -67,7 +67,7 @@ static func weapon_words(tokens: Array) -> Array:
 static func weapon_letters(tokens: Array) -> Array:
 	var set: Dictionary = {}
 	for t in tokens:
-		if t.get("kind", "") == GameLogic.KIND_ITEM and t.get("sentiment", "") == GameLogic.NEGATIVE:
+		if t.get("kind", "") == WordBank.KIND_ITEM and t.get("sentiment", "") == WordBank.NEGATIVE:
 			for ch in Lexicon.distinct_letters(t.get("text", "")):
 				set[ch] = true
 	var out: Array = set.keys()
@@ -79,8 +79,8 @@ static func weapon_letters(tokens: Array) -> Array:
 static func max_bite(tokens: Array) -> int:
 	var worst := 0
 	for t in tokens:
-		if t.get("kind", "") == GameLogic.KIND_ITEM and t.get("sentiment", "") == GameLogic.NEGATIVE:
-			worst = maxi(worst, int(GameLogic.item_power(tokens, int(t.get("item_index", -1))).get("amount", 0)))
+		if t.get("kind", "") == WordBank.KIND_ITEM and t.get("sentiment", "") == WordBank.NEGATIVE:
+			worst = maxi(worst, int(WordBank.item_power(tokens, int(t.get("item_index", -1))).get("amount", 0)))
 	return worst
 
 

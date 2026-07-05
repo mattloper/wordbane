@@ -1,0 +1,18 @@
+{
+  "flux2_klein": {
+    "match": ["flux_2_klein"],
+    "note": "Draw Things FLUX.2 [klein] defaults (same for 4b and 9b)",
+    "width": 1024, "height": 1024, "steps": 4,
+    "sampler": "DDIMTrailing", "shift": 3.0,
+    "guidance_scale": 1.0, "guidance_embed": 4.0,
+    "seed_mode": "ScaleAlike", "resolution_dependent_shift": false
+  },
+  "flux2_dev": {
+    "match": ["flux_2_dev"],
+    "note": "Draw Things FLUX.2 [dev] defaults (guidance_embed left at the flux default)",
+    "width": 1024, "height": 1024, "steps": 28,
+    "sampler": "DDIMTrailing", "shift": 1.0,
+    "guidance_scale": 4.5, "guidance_embed": 4.0,
+    "seed_mode": "ScaleAlike", "resolution_dependent_shift": true
+  }
+}

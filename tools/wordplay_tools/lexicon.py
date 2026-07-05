@@ -68,6 +68,33 @@ ITEMS: list[tuple[str, str, int, str]] = [
     ("jinx", WORD_ATTACK, 2, NEGATIVE), ("wand", WORD_ATTACK, 1, NEUTRAL),
     ("scroll", WORD_ATTACK, 1, NEUTRAL), ("rune", WORD_ATTACK, 1, NEUTRAL),
     ("spell", WORD_ATTACK, 2, NEUTRAL),
+    # Expanded negative arsenal — variety for the letter-pool game. Every enemy's
+    # letter pool is built from its weapon words, so more (and rarer-lettered)
+    # weapons = more distinct fights. Biased to cover x/z/q/j/k/v/w/y.
+    # More physical weapons (HP_ATTACK):
+    ("glaive", HP_ATTACK, 3, NEGATIVE), ("halberd", HP_ATTACK, 3, NEGATIVE),
+    ("scythe", HP_ATTACK, 3, NEGATIVE), ("rapier", HP_ATTACK, 2, NEGATIVE),
+    ("saber", HP_ATTACK, 2, NEGATIVE), ("cutlass", HP_ATTACK, 3, NEGATIVE),
+    ("cleaver", HP_ATTACK, 3, NEGATIVE), ("mace", HP_ATTACK, 2, NEGATIVE),
+    ("maul", HP_ATTACK, 3, NEGATIVE), ("flail", HP_ATTACK, 2, NEGATIVE),
+    ("whip", HP_ATTACK, 1, NEGATIVE), ("lance", HP_ATTACK, 2, NEGATIVE),
+    ("pike", HP_ATTACK, 2, NEGATIVE), ("javelin", HP_ATTACK, 2, NEGATIVE),
+    ("spike", HP_ATTACK, 2, NEGATIVE), ("dirk", HP_ATTACK, 1, NEGATIVE),
+    ("talon", HP_ATTACK, 2, NEGATIVE), ("tusk", HP_ATTACK, 2, NEGATIVE),
+    ("harpoon", HP_ATTACK, 3, NEGATIVE), ("trident", HP_ATTACK, 3, NEGATIVE),
+    ("barb", HP_ATTACK, 1, NEGATIVE), ("quill", HP_ATTACK, 1, NEGATIVE),
+    # More chaos magic / hazards / curses (WORD_ATTACK):
+    ("vortex", WORD_ATTACK, 2, NEGATIVE), ("blight", WORD_ATTACK, 2, NEGATIVE),
+    ("plague", WORD_ATTACK, 3, NEGATIVE), ("venom", WORD_ATTACK, 2, NEGATIVE),
+    ("toxin", WORD_ATTACK, 2, NEGATIVE), ("hazard", WORD_ATTACK, 2, NEGATIVE),
+    ("blaze", WORD_ATTACK, 2, NEGATIVE), ("blitz", WORD_ATTACK, 2, NEGATIVE),
+    ("quake", WORD_ATTACK, 3, NEGATIVE), ("squall", WORD_ATTACK, 2, NEGATIVE),
+    ("frost", WORD_ATTACK, 2, NEGATIVE), ("shard", WORD_ATTACK, 2, NEGATIVE),
+    ("wraith", WORD_ATTACK, 2, NEGATIVE), ("specter", WORD_ATTACK, 2, NEGATIVE),
+    ("doom", WORD_ATTACK, 3, NEGATIVE), ("dread", WORD_ATTACK, 2, NEGATIVE),
+    ("wrath", WORD_ATTACK, 3, NEGATIVE), ("malice", WORD_ATTACK, 2, NEGATIVE),
+    ("spite", WORD_ATTACK, 2, NEGATIVE), ("miasma", WORD_ATTACK, 2, NEGATIVE),
+    ("vex", WORD_ATTACK, 1, NEGATIVE), ("gloom", WORD_ATTACK, 1, NEGATIVE),
     # HP defense (heals / shields)
     ("shield", HP_DEFENSE, 2, NEUTRAL), ("armor", HP_DEFENSE, 3, NEUTRAL),
     ("wall", HP_DEFENSE, 2, NEUTRAL), ("potion", HP_DEFENSE, 2, POSITIVE),

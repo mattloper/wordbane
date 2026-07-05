@@ -165,6 +165,226 @@
           "text": "jinx",
           "item_type": "word_attack",
           "base": 2
+        },
+        {
+          "text": "glaive",
+          "item_type": "hp_attack",
+          "base": 3
+        },
+        {
+          "text": "halberd",
+          "item_type": "hp_attack",
+          "base": 3
+        },
+        {
+          "text": "scythe",
+          "item_type": "hp_attack",
+          "base": 3
+        },
+        {
+          "text": "rapier",
+          "item_type": "hp_attack",
+          "base": 2
+        },
+        {
+          "text": "saber",
+          "item_type": "hp_attack",
+          "base": 2
+        },
+        {
+          "text": "cutlass",
+          "item_type": "hp_attack",
+          "base": 3
+        },
+        {
+          "text": "cleaver",
+          "item_type": "hp_attack",
+          "base": 3
+        },
+        {
+          "text": "mace",
+          "item_type": "hp_attack",
+          "base": 2
+        },
+        {
+          "text": "maul",
+          "item_type": "hp_attack",
+          "base": 3
+        },
+        {
+          "text": "flail",
+          "item_type": "hp_attack",
+          "base": 2
+        },
+        {
+          "text": "whip",
+          "item_type": "hp_attack",
+          "base": 1
+        },
+        {
+          "text": "lance",
+          "item_type": "hp_attack",
+          "base": 2
+        },
+        {
+          "text": "pike",
+          "item_type": "hp_attack",
+          "base": 2
+        },
+        {
+          "text": "javelin",
+          "item_type": "hp_attack",
+          "base": 2
+        },
+        {
+          "text": "spike",
+          "item_type": "hp_attack",
+          "base": 2
+        },
+        {
+          "text": "dirk",
+          "item_type": "hp_attack",
+          "base": 1
+        },
+        {
+          "text": "talon",
+          "item_type": "hp_attack",
+          "base": 2
+        },
+        {
+          "text": "tusk",
+          "item_type": "hp_attack",
+          "base": 2
+        },
+        {
+          "text": "harpoon",
+          "item_type": "hp_attack",
+          "base": 3
+        },
+        {
+          "text": "trident",
+          "item_type": "hp_attack",
+          "base": 3
+        },
+        {
+          "text": "barb",
+          "item_type": "hp_attack",
+          "base": 1
+        },
+        {
+          "text": "quill",
+          "item_type": "hp_attack",
+          "base": 1
+        },
+        {
+          "text": "vortex",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "blight",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "plague",
+          "item_type": "word_attack",
+          "base": 3
+        },
+        {
+          "text": "venom",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "toxin",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "hazard",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "blaze",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "blitz",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "quake",
+          "item_type": "word_attack",
+          "base": 3
+        },
+        {
+          "text": "squall",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "frost",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "shard",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "wraith",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "specter",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "doom",
+          "item_type": "word_attack",
+          "base": 3
+        },
+        {
+          "text": "dread",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "wrath",
+          "item_type": "word_attack",
+          "base": 3
+        },
+        {
+          "text": "malice",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "spite",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "miasma",
+          "item_type": "word_attack",
+          "base": 2
+        },
+        {
+          "text": "vex",
+          "item_type": "word_attack",
+          "base": 1
+        },
+        {
+          "text": "gloom",
+          "item_type": "word_attack",
+          "base": 1
         }
       ],
       "neutral": [

@@ -23,7 +23,7 @@ func _initialize() -> void:
 	_rng.randomize()
 	_lexicon = Lexicon.load_from(DICT_PATH)
 	_gauntlet = Gauntlet.new()
-	_gauntlet.setup(GameLogic.load_bank(BANK_PATH))
+	_gauntlet.setup(WordBank.load_bank(BANK_PATH))
 	var args := OS.get_cmdline_user_args()
 	var cmd: String = args[0] if args.size() > 0 else "state"
 	match cmd:
@@ -38,7 +38,7 @@ func _initialize() -> void:
 func _cmd_new() -> void:
 	var run := {"depth": 1, "hp": START_HP, "max": START_HP, "score": 0,
 		"enemy": _gauntlet.generate(1), "used": [], "over": "",
-		"has_hint": false, "choosing": false, "boons": []}
+		"hints": 0, "choosing": false, "boons": []}
 	_save(run)
 	print("=== NEW RUN ===")
 	_print_run(run)
@@ -56,7 +56,7 @@ func _cmd_move(args: Array) -> void:
 	var word := String(args[1])
 	var res := battle.try_move(word)
 	if res.get("ok", false) and not res.get("passed", false):
-		run.score = int(run.score) + int(res.get("dealt", 0)) * 3
+		run.score = int(run.score) + int(res.get("dealt", 0)) * Gauntlet.SCORE_PER_DAMAGE
 	_after_move(run, battle, res)
 
 
@@ -76,12 +76,11 @@ func _cmd_boon(args: Array) -> void:
 	var id: String = String(args[1]) if args.size() > 1 else ""
 	if not (id in run.boons):
 		print("Choose one of: %s" % ", ".join(run.boons)); return
-	var s := {"hp": run.hp, "max_hp": run.max, "used": run.used, "has_hint": run.has_hint}
+	var s := {"hp": run.hp, "max_hp": run.max, "hints": run.get("hints", 0)}
 	Boons.apply(id, s)
 	run.hp = s.hp
 	run.max = s.max_hp
-	run.used = s.used
-	run.has_hint = s.has_hint
+	run.hints = s.hints
 	run.choosing = false
 	run.boons = []
 	run.depth = int(run.depth) + 1
@@ -119,12 +118,12 @@ func _after_move(run: Dictionary, battle: PoolBattle, res: Dictionary) -> void:
 		return
 
 	if res.get("won", false):
-		run.score = int(run.score) + int(run.depth) * 25  # chapter-clear bonus
-		run.choosing = true                               # no free heal — recover via boons
+		var bonus := int(run.depth) * Gauntlet.CHAPTER_BONUS
+		run.score = int(run.score) + bonus
+		run.choosing = true  # no free heal — recover via boons
 		run.boons = _offer_boons(run)
 		_save(run)
-		print("\n*** CHAPTER %d CLEARED! +%d score. Choose a reward: ***" % [
-			run.depth, int(run.depth) * 25])
+		print("\n*** CHAPTER %d CLEARED! +%d score. Choose a reward: ***" % [run.depth, bonus])
 		for id in run.boons:
 			print("    boon %-7s  %s" % [id, Boons.describe(id)])
 		return
@@ -134,12 +133,8 @@ func _after_move(run: Dictionary, battle: PoolBattle, res: Dictionary) -> void:
 
 
 ## Pick 3 random boon ids to offer (excluding Focus once owned).
-func _offer_boons(run: Dictionary) -> Array:
-	var pool: Array = Boons.ids()
-	if run.get("has_hint", false):
-		pool.erase("focus")
-	pool.shuffle()
-	return pool.slice(0, 3)
+func _offer_boons(_run: Dictionary) -> Array:
+	return Boons.offer()
 
 
 # --- helpers -----------------------------------------------------------------
@@ -159,7 +154,7 @@ func _print_run(run: Dictionary) -> void:
 	if run.is_empty():
 		print("No run. Run: new"); return
 	var battle := _battle_from(run)
-	var hint := "  [hint]" if run.get("has_hint", false) else ""
+	var hint := "  [hints %d]" % int(run.hints) if int(run.get("hints", 0)) > 0 else ""
 	print("CHAPTER %d    HP %d/%d    SCORE %d%s" % [run.depth, run.hp, run.max, run.get("score", 0), hint])
 	if run.get("choosing", false):
 		print("  Chapter cleared — choose a reward:")

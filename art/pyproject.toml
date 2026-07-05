@@ -1,0 +1,24 @@
+[project]
+name = "wordplay-art"
+version = "0.1.0"
+description = "Draw Things gRPC client for generating Wordplay's creature/weapon art."
+readme = "README.md"
+requires-python = ">=3.10"
+# grpcio(+tools): talk to the Draw Things gRPC server + compile imageService.proto.
+# flatbuffers: build the GenerationConfiguration blob (config.fbs) the request needs.
+# pillow: save/downscale/clean up the returned PNGs.
+dependencies = [
+    "grpcio>=1.60",
+    "grpcio-tools>=1.60",
+    "flatbuffers>=24.3.25",
+    "pillow>=10.0",
+    "numpy>=1.26",
+    "fpzip>=1.2",       # Draw Things fpzip-compresses the returned float16 image tensor
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["wordplay_art"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

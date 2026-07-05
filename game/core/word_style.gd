@@ -1,7 +1,5 @@
-## Shared word styling, so every view colours words the same way.
-##
-## Both the 2D combat scene (main.gd) and the 3D world (world.gd) map a token's
-## sentiment to a colour identically; this is the single source of truth for that.
+## Shared word styling: maps a token's sentiment to a colour, so every view
+## colours words the same way. Single source of truth for word colour.
 class_name WordStyle
 extends RefCounted
 
@@ -12,18 +10,9 @@ const FIXED := Color(0.60, 0.60, 0.68)
 
 
 static func color_for(token: Dictionary) -> Color:
-	if token.get("kind", "") == GameLogic.KIND_FIXED:
+	if token.get("kind", "") == WordBank.KIND_FIXED:
 		return FIXED
 	match token.get("sentiment", ""):
-		GameLogic.POSITIVE: return POSITIVE
-		GameLogic.NEGATIVE: return NEGATIVE
-		_: return NEUTRAL
-
-
-## Colour for the turn banner, by Battle phase.
-static func phase_color(state: String) -> Color:
-	match state:
-		Battle.ST_CHOOSE: return POSITIVE
-		Battle.ST_TARGET: return Color(1.0, 0.85, 0.3)
-		Battle.ST_BUSY: return NEGATIVE
+		WordBank.POSITIVE: return POSITIVE
+		WordBank.NEGATIVE: return NEGATIVE
 		_: return NEUTRAL
