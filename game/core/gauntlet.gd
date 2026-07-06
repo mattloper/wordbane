@@ -7,7 +7,7 @@ class_name Gauntlet
 extends RefCounted
 
 # Run tuning (single source of truth; the scene, CLI and solver all read these).
-const START_HP := 30
+const START_HP := 36
 const MAX_ITEMS := 2          # enemies wield at most two weapons
 const MIN_DANGER_MULT := 1.5  # only "dangerous" adjectives arm weapons
 const SCORE_PER_DAMAGE := 3   # score per point of HP damage dealt

@@ -37,6 +37,7 @@ var _score := 0
 var _over := false
 var _choosing := false
 var _hints := 0  # hint charges from Focus (consumable, no refill)
+var _letter_mult: Dictionary = {}  # letter -> score multiplier (from Double boons)
 var _log_lines: Array = []
 
 var _art: Art
@@ -63,6 +64,7 @@ var _sentence: HFlowContainer
 var _enemy_hpbar: ProgressBar
 var _enemy_hp_label: Label
 var _letters_row: HFlowContainer
+var _letter_tiles: Dictionary = {}  # letter -> its "in use" underline bar
 var _atk_label: Label
 var _atk_badge: PanelContainer
 var _action_line: Label
@@ -112,6 +114,7 @@ func _start_run() -> void:
 	_over = false
 	_choosing = false
 	_hints = 0
+	_letter_mult = {}
 	_log_lines = []
 	_battle.used = []  # no-reuse spans the whole run
 	_next_enemy = {}
@@ -223,7 +226,7 @@ func _on_strike_pressed() -> void:
 		return
 	_entry.text = ""
 	var dealt: int = int(res.dealt)
-	var gain: int = dealt * Gauntlet.SCORE_PER_DAMAGE  # more/rarer letters score more
+	var gain: int = _score_for(res.covered)  # rare letters + Double-boon letters score more
 	_score += gain
 	var uses := ("  [uses %s]" % ", ".join(Lexicon.upper_letters(res.covered))) if not res.covered.is_empty() else ""
 	_log_msg("You: %s hits for %d%s  +%d" % [res.word, dealt, uses, gain])
@@ -279,28 +282,49 @@ func _update_action_line() -> void:
 	if _choosing:
 		_action_line.text = "Choose a boon:"
 		_set_dmg_preview(-1)
+		_highlight_tiles([])
 		return
-	var letters_str := "".join(_battle.letters())
-	var head := "Spell from its letters  —  enemy HP %d/%d" % [_battle.enemy_hp(), _battle.enemy_max_hp()]
 	var typed := _entry.text.strip_edges()
 	if typed == "":
-		_action_line.text = head + "  ·  type any word using its letters"
-		_set_dmg_preview(-1)
+		_action_line.text = ""
+		_set_dmg_preview(0)
+		_highlight_tiles([])
 		return
 	var r := _battle.check(typed)
 	if r.get("ok", false):
-		# The damage goes in its own big label; the line just names the letters used.
+		# Damage goes in its own big readout; the line names the letters, and the used
+		# tiles are underlined below.
+		var covered := Lexicon.covered_letters(typed, "".join(_battle.letters()))
 		_set_dmg_preview(int(r.dealt))
-		_action_line.text = "%s  ·  '%s' uses %s" % [head, typed.to_lower(),
-			", ".join(Lexicon.upper_letters(Lexicon.covered_letters(typed, letters_str)))]
+		_action_line.text = "'%s' uses %s" % [typed.to_lower(), ", ".join(Lexicon.upper_letters(covered))]
+		_highlight_tiles(covered)
 	else:
-		_set_dmg_preview(-1)
-		_action_line.text = "%s  ·  %s" % [head, str(r.get("reason", ""))]
+		_set_dmg_preview(0)
+		_action_line.text = str(r.get("reason", ""))
+		_highlight_tiles([])
 
 
-## The big projected-damage readout beside the entry (-1 = blank).
+## The big projected-damage readout beside the entry (-1 = blank, else the number).
 func _set_dmg_preview(amount: int) -> void:
 	_dmg_label.text = "" if amount < 0 else str(amount)
+
+
+## Underline the letter tiles the currently-typed word covers.
+func _highlight_tiles(covered: Array) -> void:
+	var used := {}
+	for ch in covered:
+		used[ch] = true
+	for ch in _letter_tiles:
+		_letter_tiles[ch].visible = used.has(ch)
+
+
+## Score for a struck word: each covered letter's rarity weight, times its Double-boon
+## multiplier if any, times the base per-damage rate.
+func _score_for(covered: Array) -> int:
+	var units := 0
+	for ch in covered:
+		units += Lexicon.letter_weight(ch) * int(_letter_mult.get(ch, 1))
+	return units * Gauntlet.SCORE_PER_DAMAGE
 
 
 # --- boons (between-chapter progression) -------------------------------------
@@ -309,8 +333,7 @@ func _offer_boons() -> void:
 	_choosing = true
 	for c in _boon_row.get_children():
 		c.queue_free()
-	for id in Boons.offer():
-		var boon := Boons.entry(id)
+	for boon in Boons.offer():
 		var btn := Button.new()
 		btn.text = "%s\n%s" % [boon.label, boon.desc]
 		btn.custom_minimum_size = Vector2(150, 150)
@@ -320,8 +343,8 @@ func _offer_boons() -> void:
 		btn.expand_icon = true
 		btn.add_theme_constant_override("icon_max_width", 96)
 		btn.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS  # no aliasing at 96px
-		_art.request("boon", id, _style, _model, func(tex): btn.icon = tex)
-		btn.pressed.connect(_take_boon.bind(id))
+		_art.request("boon", boon.id, _style, _model, func(tex): btn.icon = tex)
+		btn.pressed.connect(_take_boon.bind(boon))
 		_boon_row.add_child(btn)
 	_render()
 
@@ -332,13 +355,14 @@ func _prefetch_boons() -> void:
 		_art.prefetch("boon", id, _style, _model)
 
 
-func _take_boon(id: String) -> void:
-	var s := {"hp": _hp, "max_hp": _max_hp, "hints": _hints}
-	Boons.apply(id, s)
+func _take_boon(boon: Dictionary) -> void:
+	var s := {"hp": _hp, "max_hp": _max_hp, "hints": _hints, "letter_mult": _letter_mult}
+	Boons.apply(boon, s)
 	_hp = int(s.hp)
 	_max_hp = int(s.max_hp)
 	_hints = int(s.hints)
-	_log_msg("Boon: %s" % id)
+	_letter_mult = s.letter_mult
+	_log_msg("Boon: %s" % boon.label)
 	_chapter += 1
 	_start_enemy()
 
@@ -385,26 +409,30 @@ func _render_enemy() -> void:
 			owner_word = t.get("text", "")
 	_portrait.text = _icons.of(owner_word)
 
-	# Sentence (flavor): each word in its sentiment colour (weapons red).
+	# Sentence: the WEAPON nouns — whose letters form the pool you spell from — are
+	# red; every other word (creature, adjectives, scenery) is muted. So "red" means
+	# exactly "this word's letters are available."
 	for c in _sentence.get_children():
 		c.queue_free()
 	for token in tokens:
-		var lbl := Label.new()
-		lbl.text = token.get("text", "")
-		lbl.add_theme_font_size_override("font_size", 20)
-		lbl.add_theme_color_override("font_color", WordStyle.color_for(token))
+		var is_weapon: bool = token.get("kind", "") == WordBank.KIND_ITEM
+		var lbl := _label(token.get("text", ""), 20)
+		lbl.add_theme_color_override("font_color", WordStyle.NEGATIVE if is_weapon else COL_MUTED)
 		_sentence.add_child(lbl)
 
 	# Letter pool: a tile per letter with its point value (rare ones highlighted).
 	# It's a damage guide — the letters stay; your words drain the HP bar above.
 	for c in _letters_row.get_children():
 		c.queue_free()
+	_letter_tiles = {}
 	for ch in _battle.letters():
 		_letters_row.add_child(_letter_tile(ch, Lexicon.letter_weight(ch)))
 
 
-## A single letter tile: big glyph + its point value; gold if rare.
-func _letter_tile(ch: String, weight: int) -> PanelContainer:
+## A single letter tile (glyph + point value; gold if rare) over a hidden underline
+## bar that lights up when the typed word covers this letter. The bar is stored in
+## `_letter_tiles[ch]` so `_highlight_tiles` can toggle it live.
+func _letter_tile(ch: String, weight: int) -> Control:
 	var panel := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = COL_TILE_RARE if weight >= 5 else COL_TILE
@@ -433,7 +461,18 @@ func _letter_tile(ch: String, weight: int) -> PanelContainer:
 	box.add_child(glyph)
 	box.add_child(pts)
 	panel.add_child(box)
-	return panel
+
+	# Tile above a thin "in use" underline bar (hidden until the word covers it).
+	var col := VBoxContainer.new()
+	col.add_theme_constant_override("separation", 2)
+	col.add_child(panel)
+	var bar := ColorRect.new()
+	bar.color = COL_HIT_ENEMY
+	bar.custom_minimum_size = Vector2(0, 3)
+	bar.visible = false
+	col.add_child(bar)
+	_letter_tiles[ch] = bar
+	return col
 
 
 func _log_msg(text: String) -> void:
@@ -625,19 +664,14 @@ func _build_action_zone(col: VBoxContainer) -> void:
 	dmg_box.add_child(dmg_cap)
 	_controls.add_child(dmg_box)
 	_entry = LineEdit.new()
-	_entry.placeholder_text = "type a word…"
+	_entry.placeholder_text = "Try any word…"
 	_entry.custom_minimum_size = Vector2(300, 0)
 	_entry.keep_editing_on_text_submit = true  # Godot 4.4+: stay focused after Enter
 	_entry.text_submitted.connect(func(_t): _on_strike_pressed())
 	_entry.text_changed.connect(func(_t): _update_action_line())
 	_controls.add_child(_entry)
-	var go := Button.new()
-	go.text = "Strike"
-	go.pressed.connect(_on_strike_pressed)
-	_controls.add_child(go)
-	_hint_btn = Button.new()
-	_hint_btn.text = "Hint"
-	_hint_btn.pressed.connect(_on_hint_pressed)
+	_controls.add_child(_action_btn("Strike", _on_strike_pressed, true))
+	_hint_btn = _action_btn("Hint", _on_hint_pressed, false)
 	_controls.add_child(_hint_btn)
 	col.add_child(_controls)
 
@@ -710,3 +744,30 @@ func _label(text: String, size: int) -> Label:
 	l.text = text
 	l.add_theme_font_size_override("font_size", size)
 	return l
+
+
+## A clearly-clickable button. `accent` = the primary action (gold fill); otherwise a
+## bordered secondary button. Both read as buttons at rest, not just on hover.
+func _action_btn(text: String, cb: Callable, accent: bool) -> Button:
+	var b := Button.new()
+	b.text = text
+	b.add_theme_font_size_override("font_size", 16)
+	b.pressed.connect(cb)
+	var fill := COL_SELECT if accent else Color(0.24, 0.25, 0.32)
+	var text_col := Color(0.12, 0.12, 0.15) if accent else UI.TEXT
+	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
+		var sb := StyleBoxFlat.new()
+		sb.bg_color = fill.lightened(0.12) if state == "hover" else fill
+		sb.set_corner_radius_all(6)
+		sb.content_margin_left = 16
+		sb.content_margin_right = 16
+		sb.content_margin_top = 7
+		sb.content_margin_bottom = 7
+		if not accent:
+			sb.set_border_width_all(1)
+			sb.border_color = COL_MUTED
+		b.add_theme_stylebox_override(state, sb)
+	b.add_theme_color_override("font_color", text_col)
+	b.add_theme_color_override("font_hover_color", text_col)
+	b.add_theme_color_override("font_pressed_color", text_col)
+	return b

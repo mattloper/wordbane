@@ -154,17 +154,24 @@ func _play_run(g: Gauntlet, maxlen: int) -> int:
 		if b.state != PoolBattle.STATE_WON:
 			break  # lost, or stuck (couldn't drain the pool) — run ends
 		hp = b.player_hp
-		# Pick a boon: heal when low, else grow, else stock hints.
-		var offer := Boons.offer()
-		var pick: String = offer[0]
-		if hp <= max_hp * 0.45 and "mend" in offer:
-			pick = "mend"
-		elif "tough" in offer:
-			pick = "tough"
+		# Model a survival-optimal player (to measure the depth ceiling): always take
+		# an HP boon over the score-only ones. Heal first when low, else grow.
+		var order: Array = ["mend", "tough", "focus", "double"] if hp <= max_hp * 0.45 \
+			else ["tough", "mend", "focus", "double"]
+		var pick := _pick_boon(Boons.offer(), order)
 		var s := {"hp": hp, "max_hp": max_hp, "hints": hints}
 		Boons.apply(pick, s)
 		hp = int(s.hp); max_hp = int(s.max_hp); hints = int(s.hints)
 	return depth
+
+
+## The highest-priority available boon (by id `order`), else the first offered.
+func _pick_boon(offer: Array, order: Array) -> Dictionary:
+	for want in order:
+		for boon in offer:
+			if boon.id == want:
+				return boon
+	return offer[0]
 
 
 ## The best fresh word (within our max length) for this enemy's letters, skipping

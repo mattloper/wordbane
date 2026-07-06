@@ -38,7 +38,7 @@ func _initialize() -> void:
 func _cmd_new() -> void:
 	var run := {"depth": 1, "hp": START_HP, "max": START_HP, "score": 0,
 		"enemy": _gauntlet.generate(1), "used": [], "over": "",
-		"hints": 0, "choosing": false, "boons": []}
+		"hints": 0, "letter_mult": {}, "choosing": false, "boons": []}
 	_save(run)
 	print("=== NEW RUN ===")
 	_print_run(run)
@@ -56,7 +56,11 @@ func _cmd_move(args: Array) -> void:
 	var word := String(args[1])
 	var res := battle.try_move(word)
 	if res.get("ok", false) and not res.get("passed", false):
-		run.score = int(run.score) + int(res.get("dealt", 0)) * Gauntlet.SCORE_PER_DAMAGE
+		var mult: Dictionary = run.get("letter_mult", {})
+		var units := 0
+		for ch in res.get("covered", []):
+			units += Lexicon.letter_weight(ch) * int(mult.get(ch, 1))
+		run.score = int(run.score) + units * Gauntlet.SCORE_PER_DAMAGE
 	_after_move(run, battle, res)
 
 
@@ -74,19 +78,26 @@ func _cmd_boon(args: Array) -> void:
 	if not run.get("choosing", false):
 		print("No reward to pick right now."); return
 	var id: String = String(args[1]) if args.size() > 1 else ""
-	if not (id in run.boons):
-		print("Choose one of: %s" % ", ".join(run.boons)); return
-	var s := {"hp": run.hp, "max_hp": run.max, "hints": run.get("hints", 0)}
-	Boons.apply(id, s)
+	var chosen: Dictionary = {}
+	for b in run.boons:
+		if b.get("id", "") == id:
+			chosen = b
+	if chosen.is_empty():
+		var ids: Array = (run.boons as Array).map(func(b): return b.id)
+		print("Choose one of: %s" % ", ".join(ids)); return
+	var s := {"hp": run.hp, "max_hp": run.max, "hints": run.get("hints", 0),
+		"letter_mult": run.get("letter_mult", {})}
+	Boons.apply(chosen, s)
 	run.hp = s.hp
 	run.max = s.max_hp
 	run.hints = s.hints
+	run.letter_mult = s.letter_mult
 	run.choosing = false
 	run.boons = []
 	run.depth = int(run.depth) + 1
 	run.enemy = _gauntlet.generate(int(run.depth))
 	_save(run)
-	print("Took %s.  Descending to chapter %d...\n" % [id, run.depth])
+	print("Took %s.  Descending to chapter %d...\n" % [chosen.label, run.depth])
 	_print_run(run)
 
 
@@ -124,8 +135,8 @@ func _after_move(run: Dictionary, battle: PoolBattle, res: Dictionary) -> void:
 		run.boons = _offer_boons(run)
 		_save(run)
 		print("\n*** CHAPTER %d CLEARED! +%d score. Choose a reward: ***" % [run.depth, bonus])
-		for id in run.boons:
-			print("    boon %-7s  %s" % [id, Boons.describe(id)])
+		for b in run.boons:
+			print("    boon %-7s  %s" % [b.id, Boons.describe(b)])
 		return
 
 	_save(run)
@@ -158,8 +169,8 @@ func _print_run(run: Dictionary) -> void:
 	print("CHAPTER %d    HP %d/%d    SCORE %d%s" % [run.depth, run.hp, run.max, run.get("score", 0), hint])
 	if run.get("choosing", false):
 		print("  Chapter cleared — choose a reward:")
-		for id in run.boons:
-			print("    boon %-7s  %s" % [id, Boons.describe(id)])
+		for b in run.boons:
+			print("    boon %-7s  %s" % [b.id, Boons.describe(b)])
 		return
 	var tokens: Array = run.enemy.tokens
 	var parts: Array = []

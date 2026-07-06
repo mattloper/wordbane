@@ -46,6 +46,7 @@ BOON_ICONS = {
     "tough": "a sturdy round shield with a heart emblem, symbol of toughness",
     "mend": "a glowing red healing potion bottle, symbol of mending",
     "focus": "a bright magnifying glass over a spark, symbol of focus and insight",
+    "double": "two shining golden coins stacked, sparkling, symbol of doubled value",
 }
 
 NEGATIVE = (
