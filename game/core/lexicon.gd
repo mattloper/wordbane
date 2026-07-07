@@ -88,6 +88,14 @@ static func covered_letters(typed: String, letters: String) -> Array:
 static func overlap_damage(typed: String, letters: String) -> int:
 	return letters_weight(covered_letters(typed, letters))
 
+## Like `overlap_damage`, but each covered letter's weight is scaled by `mult`
+## (letter -> multiplier, default 1) — used for Double-boon letters.
+static func weighted_overlap(typed: String, letters: String, mult: Dictionary) -> int:
+	var total := 0
+	for ch in covered_letters(typed, letters):
+		total += letter_weight(ch) * int(mult.get(ch, 1))
+	return total
+
 ## ["i","n","x"] -> ["I","N","X"], for tidy log/preview display.
 static func upper_letters(letters: Array) -> Array:
 	var out: Array = []

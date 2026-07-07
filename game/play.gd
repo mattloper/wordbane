@@ -56,11 +56,8 @@ func _cmd_move(args: Array) -> void:
 	var word := String(args[1])
 	var res := battle.try_move(word)
 	if res.get("ok", false) and not res.get("passed", false):
-		var mult: Dictionary = run.get("letter_mult", {})
-		var units := 0
-		for ch in res.get("covered", []):
-			units += Lexicon.letter_weight(ch) * int(mult.get(ch, 1))
-		run.score = int(run.score) + units * Gauntlet.SCORE_PER_DAMAGE
+		# res.dealt already includes any Double-boon letter multipliers.
+		run.score = int(run.score) + int(res.get("dealt", 0)) * Gauntlet.SCORE_PER_DAMAGE
 	_after_move(run, battle, res)
 
 
@@ -157,6 +154,7 @@ func _battle_from(run: Dictionary) -> PoolBattle:
 	b.player_hp = int(run.hp)
 	b.player_max = int(run.max)
 	b.used = run.used
+	b.letter_mult = run.get("letter_mult", {})
 	b.state = PoolBattle.STATE_PLAY
 	return b
 

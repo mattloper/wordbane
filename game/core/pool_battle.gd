@@ -25,6 +25,7 @@ var player_hp := 0
 var player_max := 0
 var used: Array = []
 var state := STATE_PLAY
+var letter_mult: Dictionary = {}  # letter -> value multiplier (from Double boons)
 
 
 ## Start a fight. NOTE: `used` is NOT cleared here — no-reuse spans the whole run,
@@ -118,7 +119,11 @@ func check(word: String) -> Dictionary:
 	var w := word.strip_edges().to_lower()
 	if w in weapons():
 		return {"ok": false, "reason": "'%s' is the enemy's own weapon — use a different word" % w}
-	return lexicon.validate(word, "".join(letters()), used)
+	var letters_str := "".join(letters())
+	var r := lexicon.validate(word, letters_str, used)
+	if r.get("ok", false):  # re-weight damage by any Double-boon letter multipliers
+		r["dealt"] = Lexicon.weighted_overlap(w, letters_str, letter_mult)
+	return r
 
 
 ## Attempt to strike the enemy by typing `word`. Invalid words cost nothing (retry

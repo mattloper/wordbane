@@ -53,6 +53,8 @@ var _art_status: Label
 var _dmg_label: Label
 var _rules: PanelContainer
 var _options: PanelContainer
+var _gameover: Control      # full-screen GAME OVER overlay
+var _gameover_stats: Label
 var _enemy_head: Label
 var _portrait: Label
 var _portrait_holder: Control
@@ -97,6 +99,7 @@ func _ready() -> void:
 	add_child(_rules)
 	_options = OptionsPanel.make(_on_art_settings_changed)  # redraw when style/model changes
 	add_child(_options)
+	_build_game_over()
 	_art = Art.new()
 	add_child(_art)
 	_art.daemon_status_changed.connect(_on_art_status)
@@ -115,7 +118,9 @@ func _start_run() -> void:
 	_choosing = false
 	_hints = 0
 	_letter_mult = {}
+	_battle.letter_mult = _letter_mult
 	_log_lines = []
+	_gameover.visible = false
 	_battle.used = []  # no-reuse spans the whole run
 	_next_enemy = {}
 	_start_enemy()
@@ -225,8 +230,8 @@ func _on_strike_pressed() -> void:
 		_action_line.text = "Can't: " + str(res.get("reason", "invalid"))
 		return
 	_entry.text = ""
-	var dealt: int = int(res.dealt)
-	var gain: int = _score_for(res.covered)  # rare letters + Double-boon letters score more
+	var dealt: int = int(res.dealt)  # already includes Double-boon letter multipliers
+	var gain: int = dealt * Gauntlet.SCORE_PER_DAMAGE
 	_score += gain
 	var uses := ("  [uses %s]" % ", ".join(Lexicon.upper_letters(res.covered))) if not res.covered.is_empty() else ""
 	_log_msg("You: %s hits for %d%s  +%d" % [res.word, dealt, uses, gain])
@@ -267,9 +272,16 @@ func _on_hint_pressed() -> void:
 
 func _lose() -> void:
 	_over = true
+	var record := Settings.record_run(_chapter, _score)
 	_log_msg("DEFEATED in chapter %d. Final score: %d." % [_chapter, _score])
-	if Settings.record_run(_chapter, _score):
+	if record:
 		_log_msg("New best!")
+	# Big, unmissable end-of-run cue.
+	_gameover_stats.text = "Reached chapter %d   ·   Score %d%s" % [
+		_chapter, _score, "\n★ New best! ★" if record else ""]
+	_gameover.visible = true
+	_gameover.modulate.a = 0.0
+	create_tween().tween_property(_gameover, "modulate:a", 1.0, 0.4)
 
 
 ## The action-line text: final/boon prompts, else a live damage preview of what
@@ -318,15 +330,6 @@ func _highlight_tiles(covered: Array) -> void:
 		_letter_tiles[ch].visible = used.has(ch)
 
 
-## Score for a struck word: each covered letter's rarity weight, times its Double-boon
-## multiplier if any, times the base per-damage rate.
-func _score_for(covered: Array) -> int:
-	var units := 0
-	for ch in covered:
-		units += Lexicon.letter_weight(ch) * int(_letter_mult.get(ch, 1))
-	return units * Gauntlet.SCORE_PER_DAMAGE
-
-
 # --- boons (between-chapter progression) -------------------------------------
 
 func _offer_boons() -> void:
@@ -362,6 +365,7 @@ func _take_boon(boon: Dictionary) -> void:
 	_max_hp = int(s.max_hp)
 	_hints = int(s.hints)
 	_letter_mult = s.letter_mult
+	_battle.letter_mult = _letter_mult  # damage + score use the multipliers
 	_log_msg("Boon: %s" % boon.label)
 	_chapter += 1
 	_start_enemy()
@@ -426,23 +430,29 @@ func _render_enemy() -> void:
 		c.queue_free()
 	_letter_tiles = {}
 	for ch in _battle.letters():
-		_letters_row.add_child(_letter_tile(ch, Lexicon.letter_weight(ch)))
+		_letters_row.add_child(_letter_tile(ch, Lexicon.letter_weight(ch), int(_letter_mult.get(ch, 1))))
 
 
-## A single letter tile (glyph + point value; gold if rare) over a hidden underline
-## bar that lights up when the typed word covers this letter. The bar is stored in
-## `_letter_tiles[ch]` so `_highlight_tiles` can toggle it live.
-func _letter_tile(ch: String, weight: int) -> Control:
+## A single letter tile (glyph + effective point value) over a hidden underline bar
+## that lights up when the typed word covers this letter (stored in `_letter_tiles`).
+## `mult` is the letter's Double-boon multiplier: its value shows as base x mult, and
+## a boosted (mult > 1) or rare tile is highlighted gold.
+func _letter_tile(ch: String, base: int, mult: int) -> Control:
+	var value := base * mult
+	var boosted: bool = mult > 1
+	var hot: bool = boosted or base >= 5
 	var panel := PanelContainer.new()
 	var sb := StyleBoxFlat.new()
-	sb.bg_color = COL_TILE_RARE if weight >= 5 else COL_TILE
+	sb.bg_color = COL_TILE_RARE if hot else COL_TILE
 	sb.set_corner_radius_all(6)
 	sb.set_content_margin_all(6)
-	if weight >= 5:
+	if hot:
 		sb.set_border_width_all(2)
 		sb.border_color = COL_SELECT
 	panel.add_theme_stylebox_override("panel", sb)
 	panel.custom_minimum_size = Vector2(40, 46)
+	if boosted:
+		panel.tooltip_text = "%s is worth %dx (Double boon)" % [ch.to_upper(), mult]
 
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 0)
@@ -452,12 +462,12 @@ func _letter_tile(ch: String, weight: int) -> Control:
 	glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	glyph.add_theme_font_size_override("font_size", 22)
 	glyph.add_theme_color_override("font_color",
-		COL_SELECT if weight >= 5 else Color(0.9, 0.92, 0.98))
+		COL_SELECT if hot else Color(0.9, 0.92, 0.98))
 	var pts := Label.new()
-	pts.text = str(weight)
+	pts.text = ("%d×" % value) if boosted else str(value)
 	pts.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pts.add_theme_font_size_override("font_size", 11)
-	pts.add_theme_color_override("font_color", COL_MUTED)
+	pts.add_theme_color_override("font_color", COL_SELECT if boosted else COL_MUTED)
 	box.add_child(glyph)
 	box.add_child(pts)
 	panel.add_child(box)
@@ -722,6 +732,57 @@ func _build_footer(col: VBoxContainer) -> void:
 	var center := CenterContainer.new()
 	center.add_child(restart)
 	col.add_child(center)
+
+
+## A full-screen GAME OVER overlay (dim + centered card), hidden until you die.
+func _build_game_over() -> void:
+	_gameover = Control.new()
+	_gameover.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_gameover.visible = false
+	add_child(_gameover)
+
+	var dim := ColorRect.new()
+	dim.color = Color(0, 0, 0, 0.66)
+	dim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_gameover.add_child(dim)
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_gameover.add_child(center)
+
+	var card := PanelContainer.new()
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = COL_PANEL
+	sb.set_corner_radius_all(12)
+	sb.set_content_margin_all(28)
+	sb.set_border_width_all(3)
+	sb.border_color = WordStyle.NEGATIVE
+	card.add_theme_stylebox_override("panel", sb)
+	center.add_child(card)
+
+	var box := VBoxContainer.new()
+	box.alignment = BoxContainer.ALIGNMENT_CENTER
+	box.add_theme_constant_override("separation", 14)
+	box.custom_minimum_size = Vector2(420, 0)
+	card.add_child(box)
+
+	var title := _label("GAME OVER", 52)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_color_override("font_color", WordStyle.NEGATIVE)
+	box.add_child(title)
+
+	_gameover_stats = _label("", 18)
+	_gameover_stats.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_gameover_stats.add_theme_color_override("font_color", COL_SELECT)
+	box.add_child(_gameover_stats)
+
+	var buttons := HBoxContainer.new()
+	buttons.alignment = BoxContainer.ALIGNMENT_CENTER
+	buttons.add_theme_constant_override("separation", 12)
+	buttons.add_child(_action_btn("New Run", _start_run, true))
+	buttons.add_child(_action_btn("Main Menu",
+		func(): get_tree().change_scene_to_file("res://title.tscn"), false))
+	box.add_child(buttons)
 
 
 ## Add a rounded padded panel to `parent` and return its inner VBox to fill.
