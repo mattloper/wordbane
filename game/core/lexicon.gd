@@ -12,16 +12,9 @@ extends RefCounted
 
 var words: Dictionary = {}  # word -> {pos, sentiment}
 
-## Rarity weight per letter (Scrabble English values): rare letters hit harder.
-const LETTER_WEIGHT := {
-	"a": 1, "e": 1, "i": 1, "o": 1, "u": 1, "n": 1, "r": 1, "t": 1, "l": 1, "s": 1,
-	"d": 2, "g": 2,
-	"b": 3, "c": 3, "m": 3, "p": 3,
-	"f": 4, "h": 4, "v": 4, "w": 4, "y": 4,
-	"k": 5,
-	"j": 8, "x": 8,
-	"q": 10, "z": 10,
-}
+# Rarity weight per letter (Scrabble English values): rare letters hit harder.
+# Sourced from rules.json (Rules) so the Godot game and any port stay in sync.
+static var LETTER_WEIGHT: Dictionary = Rules.section("letter_weights")
 
 
 static func load_from(path: String) -> Lexicon:

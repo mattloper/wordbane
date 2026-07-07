@@ -100,6 +100,7 @@ func _initialize() -> void:
 	# --- Gauntlet: escalating, distinct weapons, seeded letter pool ---
 	var g := Gauntlet.new()
 	g.setup(bank)
+	g.rng = Rng.new(99)  # deterministic generation
 	var e := g.generate(3)
 	var weps: Array = []
 	for t in e.tokens:
@@ -122,9 +123,76 @@ func _initialize() -> void:
 	_check(icons.of("dragon") == "🐉" and icons.of("knife") == "🔪", "known words map to emoji")
 	_check(icons.of("zzznotaword") == "", "unknown words map to no emoji")
 
+	# --- Conformance fixtures (the shared cross-engine golden vectors) ---
+	_run_conformance(wl, bank)
+
 	if _failures == 0:
 		print("ALL PASS")
 		quit(0)
 	else:
 		print("FAILURES: %d" % _failures)
 		quit(1)
+
+
+## Run the language-neutral golden vectors in data/conformance.json. A JS/HTML port
+## runs the SAME file with an equivalent runner — matching outputs = no drift.
+func _run_conformance(wl: Lexicon, bank: Dictionary) -> void:
+	var f := FileAccess.open("res://data/conformance.json", FileAccess.READ)
+	var c: Dictionary = JSON.parse_string(f.get_as_text())
+	var n := 0
+
+	for t in c["letter_weight"]:
+		_check(Lexicon.letter_weight(t[0]) == int(t[1]), "conf letter_weight(%s)" % t[0]); n += 1
+	for t in c["word_weight"]:
+		_check(Lexicon.word_weight(t[0]) == int(t[1]), "conf word_weight(%s)" % t[0]); n += 1
+	for t in c["overlap_damage"]:
+		_check(Lexicon.overlap_damage(t[0], t[1]) == int(t[2]), "conf overlap_damage(%s,%s)" % [t[0], t[1]]); n += 1
+	for t in c["weighted_overlap"]:
+		_check(Lexicon.weighted_overlap(t[0], t[1], t[2]) == int(t[3]), "conf weighted_overlap(%s,%s)" % [t[0], t[1]]); n += 1
+	for t in c["shares_letter"]:
+		_check(Lexicon.shares_letter(t[0], t[1]) == bool(t[2]), "conf shares_letter(%s,%s)" % [t[0], t[1]]); n += 1
+	for t in c["covered_letters"]:
+		_check(Lexicon.covered_letters(t[0], t[1]) == t[2], "conf covered_letters(%s,%s)" % [t[0], t[1]]); n += 1
+	for t in c["boon_apply"]:
+		var s: Dictionary = (t["in"] as Dictionary).duplicate(true)
+		Boons.apply(t["boon"], s)
+		_check(_eq(s, t["out"]), "conf boon_apply(%s)" % t["boon"].get("id", "?")); n += 1
+	for t in c["rng_u32"]:
+		var r := Rng.new(int(t[0]))
+		var got: Array = []
+		for _i in range(t[1].size()):
+			got.append(r.next_u32())
+		_check(_eq(got, t[1]), "conf rng_u32(seed=%d)" % int(t[0])); n += 1
+	for t in c["generate_sentence"]:
+		var g := Gauntlet.new()
+		g.setup(bank)
+		g.rng = Rng.new(int(t[0]))
+		var e := g.generate(int(t[1]))
+		var parts: Array = []
+		for tok in e.tokens:
+			parts.append(tok.get("text", ""))
+		_check(" ".join(parts) == String(t[2]), "conf generate_sentence(seed=%d)" % int(t[0])); n += 1
+
+	print("  (ran %d conformance vectors)" % n)
+
+
+## Numeric-aware deep equality (JSON parses all numbers as float; our code returns
+## ints, and Godot's container == is type-strict, so we coerce numbers here).
+func _eq(a, b) -> bool:
+	if (a is int or a is float) and (b is int or b is float):
+		return float(a) == float(b)
+	if a is Dictionary and b is Dictionary:
+		if a.size() != b.size():
+			return false
+		for k in a:
+			if not b.has(k) or not _eq(a[k], b[k]):
+				return false
+		return true
+	if a is Array and b is Array:
+		if a.size() != b.size():
+			return false
+		for i in a.size():
+			if not _eq(a[i], b[i]):
+				return false
+		return true
+	return a == b

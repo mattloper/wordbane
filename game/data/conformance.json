@@ -1,0 +1,50 @@
+{
+  "_note": "Language-neutral golden vectors for the pure game logic. The Godot selftest runs these; a future JS/HTML port must run the SAME file and match — that's how we catch drift between implementations. Values depend on rules.json (weights) and word_bank.json (generate cases).",
+
+  "letter_weight": [
+    ["a", 1], ["e", 1], ["d", 2], ["c", 3], ["h", 4],
+    ["k", 5], ["x", 8], ["z", 10], ["?", 1]
+  ],
+
+  "word_weight": [
+    ["hex", 13], ["rat", 3], ["otto", 2], ["quiz", 22]
+  ],
+
+  "overlap_damage": [
+    ["vex", "hex", 9], ["art", "rat", 3], ["gum", "knife", 0], ["fine", "knife", 7]
+  ],
+
+  "weighted_overlap": [
+    ["vex", "hex", {}, 9],
+    ["vex", "hex", {"x": 2}, 17],
+    ["art", "rat", {"a": 2, "t": 3}, 6]
+  ],
+
+  "shares_letter": [
+    ["art", "rat", true], ["dog", "rat", false], ["axe", "hex", true]
+  ],
+
+  "covered_letters": [
+    ["vex", "hex", ["e", "x"]],
+    ["gum", "knife", []],
+    ["banana", "abn", ["a", "b", "n"]]
+  ],
+
+  "boon_apply": [
+    {"boon": {"id": "tough"}, "in": {"hp": 10, "max_hp": 20, "hints": 0}, "out": {"hp": 16, "max_hp": 26, "hints": 0}},
+    {"boon": {"id": "tough"}, "in": {"hp": 19, "max_hp": 20, "hints": 0}, "out": {"hp": 25, "max_hp": 26, "hints": 0}},
+    {"boon": {"id": "mend"}, "in": {"hp": 5, "max_hp": 30, "hints": 0}, "out": {"hp": 30, "max_hp": 30, "hints": 0}},
+    {"boon": {"id": "focus"}, "in": {"hp": 30, "max_hp": 30, "hints": 1}, "out": {"hp": 30, "max_hp": 30, "hints": 4}},
+    {"boon": {"id": "double", "arg": "e"}, "in": {"hp": 30, "max_hp": 30, "hints": 0, "letter_mult": {}}, "out": {"hp": 30, "max_hp": 30, "hints": 0, "letter_mult": {"e": 2}}},
+    {"boon": {"id": "double", "arg": "e"}, "in": {"hp": 30, "max_hp": 30, "hints": 0, "letter_mult": {"e": 2}}, "out": {"hp": 30, "max_hp": 30, "hints": 0, "letter_mult": {"e": 4}}}
+  ],
+
+  "rng_u32": [
+    [42, [2581720956, 1925393290, 3661312704, 2876485805, 750819978]],
+    [1, [2693262067, 11749833, 2265367787, 4213581821, 4159151403]]
+  ],
+
+  "generate_sentence": [
+    [12345, 1, "A wicked goblin wields a jagged spite"]
+  ]
+}

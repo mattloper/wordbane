@@ -1,0 +1,30 @@
+{
+  "_note": "Single source of truth for game tuning + catalogs, so the Godot game and any future port (JS/HTML) share identical numbers. Read by game/core/rules.gd.",
+  "letter_weights": {
+    "a": 1, "e": 1, "i": 1, "o": 1, "u": 1, "n": 1, "r": 1, "t": 1, "l": 1, "s": 1,
+    "d": 2, "g": 2,
+    "b": 3, "c": 3, "m": 3, "p": 3,
+    "f": 4, "h": 4, "v": 4, "w": 4, "y": 4,
+    "k": 5,
+    "j": 8, "x": 8,
+    "q": 10, "z": 10
+  },
+  "gauntlet": {
+    "start_hp": 36,
+    "max_items": 2,
+    "min_danger_mult": 1.5,
+    "score_per_damage": 3,
+    "chapter_bonus": 25,
+    "hp_per_chapter": 1
+  },
+  "boons": {
+    "hints_per_focus": 3,
+    "double_letters": "eariotnslcdumhpg",
+    "catalog": [
+      {"id": "tough", "label": "Toughness", "desc": "+6 Max HP"},
+      {"id": "mend", "label": "Mend", "desc": "Heal to full"},
+      {"id": "focus", "label": "Focus", "desc": "+3 Hints"},
+      {"id": "double", "label": "Double Letter", "desc": "2x score for a letter"}
+    ]
+  }
+}

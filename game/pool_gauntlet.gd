@@ -38,6 +38,7 @@ var _over := false
 var _choosing := false
 var _hints := 0  # hint charges from Focus (consumable, no refill)
 var _letter_mult: Dictionary = {}  # letter -> score multiplier (from Double boons)
+var _rng := Rng.new()              # one seeded stream drives all run randomness
 var _log_lines: Array = []
 
 var _art: Art
@@ -119,6 +120,8 @@ func _start_run() -> void:
 	_hints = 0
 	_letter_mult = {}
 	_battle.letter_mult = _letter_mult
+	_rng = Rng.new(int(Time.get_unix_time_from_system() * 1000.0) & 0xffffffff)
+	_gauntlet.rng = _rng
 	_log_lines = []
 	_gameover.visible = false
 	_battle.used = []  # no-reuse spans the whole run
@@ -336,7 +339,7 @@ func _offer_boons() -> void:
 	_choosing = true
 	for c in _boon_row.get_children():
 		c.queue_free()
-	for boon in Boons.offer():
+	for boon in Boons.offer(_rng):
 		var btn := Button.new()
 		btn.text = "%s\n%s" % [boon.label, boon.desc]
 		btn.custom_minimum_size = Vector2(150, 150)

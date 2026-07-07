@@ -6,22 +6,22 @@
 class_name Gauntlet
 extends RefCounted
 
-# Run tuning (single source of truth; the scene, CLI and solver all read these).
-const START_HP := 36
-const MAX_ITEMS := 2          # enemies wield at most two weapons
-const MIN_DANGER_MULT := 1.5  # only "dangerous" adjectives arm weapons
-const SCORE_PER_DAMAGE := 3   # score per point of HP damage dealt
-const CHAPTER_BONUS := 25     # score per cleared chapter (times the chapter number)
-const HP_PER_CHAPTER := 1     # gentle enemy-HP growth per chapter (pool stays drainable)
+# Run tuning — backed by rules.json (Rules) so the scene, CLI, solver, and any port
+# read identical numbers. Names unchanged, so callers still use Gauntlet.START_HP etc.
+static var START_HP: int = int(Rules.num("gauntlet", "start_hp", 36))
+static var MAX_ITEMS: int = int(Rules.num("gauntlet", "max_items", 2))          # weapons per enemy
+static var MIN_DANGER_MULT: float = Rules.num("gauntlet", "min_danger_mult", 1.5)  # min adj mult to arm
+static var SCORE_PER_DAMAGE: int = int(Rules.num("gauntlet", "score_per_damage", 3))
+static var CHAPTER_BONUS: int = int(Rules.num("gauntlet", "chapter_bonus", 25))  # x chapter number
+static var HP_PER_CHAPTER: int = int(Rules.num("gauntlet", "hp_per_chapter", 1))  # enemy HP growth/depth
 
 var _pools: Dictionary = {}
-var _rng := RandomNumberGenerator.new()
+var rng := Rng.new()  # injected/seeded by the caller for reproducible runs
 var _usable_items: Array = []  # weapon pool (set in setup)
 
 
 func setup(bank: Dictionary) -> void:
 	_pools = bank.get("pools", {})
-	_rng.randomize()
 	_usable_items = _neg(WordBank.KIND_ITEM)
 
 
@@ -30,7 +30,7 @@ func _neg(kind: String) -> Array:
 
 
 func _pick(arr: Array) -> Dictionary:
-	return arr[_rng.randi_range(0, arr.size() - 1)]
+	return rng.pick(arr)
 
 
 ## Dangerous adjectives (high multiplier), so each weapon is a real threat.
@@ -60,7 +60,7 @@ func generate(round: int) -> Dictionary:
 
 	# Distinct, fairly-solvable items per enemy (no "wields a hex and a hex").
 	var items := _usable_items.duplicate()
-	items.shuffle()
+	rng.shuffle(items)
 	for i in range(num_items):
 		if i > 0:
 			tokens.append(_fixed("and"))

@@ -48,7 +48,7 @@ func _initialize() -> void:
 	for k in tiers:
 		var depths: Array = []
 		for run in range(RUNS):
-			depths.append(_play_run(g, k))
+			depths.append(_play_run(g, k, run))
 		depths.sort()
 		var sum := 0.0
 		for d in depths:
@@ -126,7 +126,9 @@ func _known_words(letters: String, maxlen: int) -> PackedStringArray:
 
 
 ## Play one run with a max-length vocabulary; return depth reached.
-func _play_run(g: Gauntlet, maxlen: int) -> int:
+func _play_run(g: Gauntlet, maxlen: int, seed: int) -> int:
+	var rng := Rng.new(seed)  # deterministic per run -> reproducible curves
+	g.rng = rng
 	var hp: int = Gauntlet.START_HP
 	var max_hp: int = Gauntlet.START_HP
 	var used_set: Dictionary = {}  # words spent this run (no-reuse spans the run)
@@ -158,7 +160,7 @@ func _play_run(g: Gauntlet, maxlen: int) -> int:
 		# an HP boon over the score-only ones. Heal first when low, else grow.
 		var order: Array = ["mend", "tough", "focus", "double"] if hp <= max_hp * 0.45 \
 			else ["tough", "mend", "focus", "double"]
-		var pick := _pick_boon(Boons.offer(), order)
+		var pick := _pick_boon(Boons.offer(rng), order)
 		var s := {"hp": hp, "max_hp": max_hp, "hints": hints}
 		Boons.apply(pick, s)
 		hp = int(s.hp); max_hp = int(s.max_hp); hints = int(s.hints)

@@ -12,7 +12,6 @@ extends SceneTree
 const BANK_PATH := "res://data/word_bank.json"
 const DICT_PATH := "res://data/dictionary.json"
 const STATE_PATH := "user://wp_run.json"
-const START_HP := Gauntlet.START_HP
 
 var _lexicon: Lexicon
 var _gauntlet: Gauntlet
@@ -36,9 +35,13 @@ func _initialize() -> void:
 
 
 func _cmd_new() -> void:
-	var run := {"depth": 1, "hp": START_HP, "max": START_HP, "score": 0,
+	# One seeded RNG stream per run; its 32-bit state persists in the save so the
+	# stream continues (and stays reproducible) across CLI invocations.
+	_gauntlet.rng = Rng.new(int(Time.get_unix_time_from_system() * 1000.0) & 0xffffffff)
+	var run := {"depth": 1, "hp": Gauntlet.START_HP, "max": Gauntlet.START_HP, "score": 0,
 		"enemy": _gauntlet.generate(1), "used": [], "over": "",
-		"hints": 0, "letter_mult": {}, "choosing": false, "boons": []}
+		"hints": 0, "letter_mult": {}, "choosing": false, "boons": [],
+		"rng_state": _gauntlet.rng.state}
 	_save(run)
 	print("=== NEW RUN ===")
 	_print_run(run)
@@ -92,7 +95,10 @@ func _cmd_boon(args: Array) -> void:
 	run.choosing = false
 	run.boons = []
 	run.depth = int(run.depth) + 1
+	_gauntlet.rng = Rng.new()
+	_gauntlet.rng.state = int(run.get("rng_state", 0))
 	run.enemy = _gauntlet.generate(int(run.depth))
+	run.rng_state = _gauntlet.rng.state
 	_save(run)
 	print("Took %s.  Descending to chapter %d...\n" % [chosen.label, run.depth])
 	_print_run(run)
@@ -141,8 +147,12 @@ func _after_move(run: Dictionary, battle: PoolBattle, res: Dictionary) -> void:
 
 
 ## Pick 3 random boon ids to offer (excluding Focus once owned).
-func _offer_boons(_run: Dictionary) -> Array:
-	return Boons.offer()
+func _offer_boons(run: Dictionary) -> Array:
+	var rng := Rng.new()
+	rng.state = int(run.get("rng_state", 0))
+	var out := Boons.offer(rng)
+	run.rng_state = rng.state  # persist the advanced stream
+	return out
 
 
 # --- helpers -----------------------------------------------------------------
