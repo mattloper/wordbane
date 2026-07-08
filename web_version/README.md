@@ -10,7 +10,7 @@ It needs to be *served* (browsers block loading data from `file://`). Two easy w
 
 **Locally** — from the repo root:
 ```
-python3 -m http.server 8000
+python3 serve.py
 ```
 then open <http://localhost:8000/web_version/>.
 

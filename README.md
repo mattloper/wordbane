@@ -16,7 +16,7 @@ It just needs to be *served* (a browser won't load the game's files straight off
 disk). From this folder, run:
 
 ```bash
-python3 -m http.server 8000
+python3 serve.py
 ```
 
 Then open **<http://localhost:8000/web_version/>** and hit **Play**.
