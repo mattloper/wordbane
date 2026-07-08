@@ -447,7 +447,7 @@ func _letter_tile(ch: String, base: int, mult: int) -> Control:
 	glyph.add_theme_color_override("font_color",
 		COL_SELECT if hot else Color(0.9, 0.92, 0.98))
 	var pts := Label.new()
-	pts.text = ("%d×" % value) if boosted else str(value)
+	pts.text = str(value)  # boosted letters show their gold value (tile is gold when hot)
 	pts.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	pts.add_theme_font_size_override("font_size", 11)
 	pts.add_theme_color_override("font_color", COL_SELECT if boosted else COL_MUTED)

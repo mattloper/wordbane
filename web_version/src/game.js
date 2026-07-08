@@ -243,7 +243,7 @@ function renderEnemy() {
     el.className = 'tile' + (hot ? ' hot' : '');
     el.innerHTML =
       `<div class="box"><div class="glyph">${ch.toUpperCase()}</div>` +
-      `<div class="pts">${boosted ? value + '×' : value}</div></div><div class="bar"></div>`;
+      `<div class="pts">${value}</div></div><div class="bar"></div>`;
     if (boosted) el.title = `${ch.toUpperCase()} is worth ${mult}× (Double boon)`;
     row.appendChild(el);
     S.tileEls[ch] = el;
