@@ -5,17 +5,15 @@ extends RefCounted
 
 const PATH := "user://wordplay.cfg"
 
-const DEFAULT_STYLE := "storybook"
 const DEFAULT_MODEL := "flux_2_klein_9b_q8p.ckpt"
 
-# Art styles for the Options dropdown; `key` must match wordplay_art.portrait.STYLES.
-const STYLES := [
-	{"key": "storybook", "label": "Storybook"},
-	{"key": "flat-sticker", "label": "Flat sticker"},
-	{"key": "enamel-pin", "label": "Enamel pin"},
-	{"key": "pixel-art", "label": "Pixel art"},
-	{"key": "woodcut-ink", "label": "Woodcut"},
-]
+# Art skins for the Options dropdown — loaded from the shared single source of truth
+# (shared_data/styles.json), the same file the web build and art generator read. Add
+# a skin there and it appears here automatically. Entries are {key, label, prompt}.
+const STYLES_PATH := "res://../shared_data/styles.json"
+static var _styles_data: Dictionary = JsonFile.load_dict(STYLES_PATH)
+static var DEFAULT_STYLE: String = str(_styles_data.get("default", "storybook"))
+static var STYLES: Array = _styles_data.get("styles", [])
 # Portrait models; `file` is the Draw Things filename (resolves to a preset).
 const MODELS := [
 	{"label": "Klein 4b — fastest", "file": "flux_2_klein_4b_q8p.ckpt"},

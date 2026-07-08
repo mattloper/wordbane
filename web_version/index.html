@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Wordplay</title>
+  <title>Wordbane</title>
   <style>
     :root {
       --bg: #1c1f2b; --panel: #292b3b; --select: #ffdb4d; --muted: #8c8fa3;
@@ -101,6 +101,7 @@
     .card.danger { border-color: var(--danger); }
     .card h1 { margin: 0 0 6px; }
     #title-card h1 { color: var(--select); font-size: 56px; letter-spacing: 2px; }
+    #title-logo { width: 100%; max-width: 340px; display: block; margin: 0 auto 6px; }
     #gameover-card h1 { color: var(--danger); font-size: 48px; }
     .card p { color: var(--text); }
     .menu { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
@@ -112,7 +113,7 @@
 <body>
   <div id="app">
     <header>
-      <div class="title">Wordplay</div>
+      <div class="title">Wordbane</div>
       <div id="chapter">CHAPTER 1</div>
       <div id="menu-wrap">
         <span id="score">SCORE 0</span>
@@ -169,7 +170,8 @@
   <!-- Title screen -->
   <div id="title" class="overlay">
     <div id="title-card" class="card">
-      <h1>WORDPLAY</h1>
+      <img id="title-logo" class="hidden" alt="Wordbane" />
+      <h1 id="title-text">WORDBANE</h1>
       <p class="muted">a letter-pool word battler</p>
       <p id="best" class="muted"></p>
       <div class="menu">
@@ -185,7 +187,7 @@
     <div class="card">
       <h1 style="color:var(--select);font-size:26px">Options</h1>
       <div style="text-align:left;margin-top:8px">
-        <label for="style-select" class="muted" style="font-size:14px">Monster art style</label><br />
+        <label for="style-select" class="muted" style="font-size:14px">Skin (art style)</label><br />
         <select id="style-select" style="font:inherit;font-size:16px;margin-top:6px;padding:6px 10px;
           background:#14161f;color:var(--text);border:1px solid var(--muted);border-radius:6px;width:100%"></select>
       </div>

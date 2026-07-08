@@ -24,22 +24,13 @@ from .client import DEFAULT_HOST, DEFAULT_PORT, decode_image, generate
 
 MODEL = "flux_2_klein_4b_q8p.ckpt"  # fallback default; the game passes its choice
 
-# Selectable looks (the game's style dropdown). Each suffix — background included —
-# is appended to a subject so the whole run stays coherent.
-STYLES = {
-    "storybook": "soft painterly storybook children's-book illustration, gouache "
-        "texture, warm gentle colors, soft rounded shapes, whimsical, hand-drawn, "
-        "friendly, plain soft cream background",
-    "flat-sticker": "flat vector sticker illustration, bold clean black outlines, "
-        "vibrant flat colors, plain white background",
-    "enamel-pin": "glossy enamel pin game icon, thick gold metal outline, saturated "
-        "colors, subtle gradient shading, plain white background",
-    "pixel-art": "16-bit pixel art game sprite, crisp blocky pixels, limited retro "
-        "palette, plain dark slate background",
-    "woodcut-ink": "black and white woodcut engraving, bold ink linework, "
-        "cross-hatching, high contrast, plain white background",
-}
-DEFAULT_STYLE = "storybook"
+# Selectable looks ("skins") — the ONE source of truth is shared_data/styles.json,
+# read by both game builds (for the picker) and here (for the prompt suffix appended
+# to each subject). Add a skin by editing that file, then re-run bake.
+_STYLES_PATH = Path(__file__).resolve().parents[2] / "shared_data" / "styles.json"
+_STYLES_DATA = json.loads(_STYLES_PATH.read_text())
+STYLES = {s["key"]: s["prompt"] for s in _STYLES_DATA["styles"]}
+DEFAULT_STYLE = _STYLES_DATA["default"]
 
 # Boon icons: a single evocative object per reward id (matches godot_version/core/boons.gd).
 BOON_ICONS = {
@@ -87,11 +78,28 @@ def _tombstone_prompt(creature: str, style: str) -> str:
         "a single centered grave marker", style)
 
 
+def _logo_prompt(subject: str, style: str) -> str:
+    # `subject` is the game name, so a rename needs no change here. Unlike every
+    # other kind, a logo IS text, so it generates with an empty negative prompt.
+    name = (subject or "wordbane").strip().upper()
+    return _styled(
+        f'the word "{name}" as a big bold game title logo, '
+        "large clear readable capital letters, centered", style)
+
+
 PROMPTS = {
     "creature": _creature_prompt,
     "boon": _boon_prompt,
     "tombstone": _tombstone_prompt,
+    "logo": _logo_prompt,
 }
+
+# Kinds whose subject IS rendered text — these must NOT suppress text in the negative.
+TEXT_KINDS = {"logo"}
+
+
+def _negative_for(kind: str) -> str:
+    return "" if kind in TEXT_KINDS else NEGATIVE
 
 
 def build_prompt(kind: str, subject: str, style: str = DEFAULT_STYLE) -> str:
@@ -106,12 +114,12 @@ def _sha(text: str, n: int) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()[:n]
 
 
-def _paths(prompt: str, model: str) -> dict:
+def _paths(prompt: str, model: str, negative: str = NEGATIVE) -> dict:
     """The on-disk png/meta paths for a prompt (content-addressed), plus the stable
     seed and resolved params. Paths need not exist yet."""
     seed = int(_sha(prompt, 8), 16)  # stable per prompt: same subject -> same image
     params = presets.resolve(model)
-    key = {"model": model, "params": params, "seed": seed, "negative": NEGATIVE}
+    key = {"model": model, "params": params, "seed": seed, "negative": negative}
     folder = CACHE_ROOT / model / _sha(json.dumps(key, sort_keys=True), 12)
     return {
         "prompt": prompt, "seed": seed, "params": params,
@@ -119,28 +127,29 @@ def _paths(prompt: str, model: str) -> dict:
     }
 
 
-def _render(prompt: str, model: str, meta: dict, *, host: str, port: int, regenerate: bool) -> Path:
+def _render(prompt: str, model: str, meta: dict, *, host: str, port: int, regenerate: bool,
+            negative: str = NEGATIVE) -> Path:
     """Return the cached image for `prompt`, generating it (Draw Things) if missing."""
-    p = _paths(prompt, model)
+    p = _paths(prompt, model, negative)
     png: Path = p["png"]
     if png.exists() and not regenerate:
         return png
     imgs = generate(prompt=prompt, model=model, host=host, port=port,
-                    negative_prompt=NEGATIVE, seed=p["seed"])
+                    negative_prompt=negative, seed=p["seed"])
     if not imgs:
         raise RuntimeError("Draw Things returned no image")
     png.parent.mkdir(parents=True, exist_ok=True)
     decode_image(imgs[0]).save(png)
     p["meta"].write_text(json.dumps(
         {**meta, "prompt": prompt, "model": model, "seed": p["seed"],
-         "params": p["params"], "negative": NEGATIVE}, indent=2))
+         "params": p["params"], "negative": negative}, indent=2))
     return png
 
 
 # --- public API (one call for every kind) ------------------------------------
 
 def cached_path(kind: str, subject: str, style: str = DEFAULT_STYLE, model: str = MODEL) -> Path | None:
-    png = _paths(build_prompt(kind, subject, style), model)["png"]
+    png = _paths(build_prompt(kind, subject, style), model, _negative_for(kind))["png"]
     return png if png.exists() else None
 
 
@@ -149,7 +158,7 @@ def image(kind: str, subject: str, *, style: str = DEFAULT_STYLE, model: str = M
     """The cached artwork for (kind, subject, style, model), generating if missing."""
     return _render(build_prompt(kind, subject, style), model,
                    {"kind": kind, "subject": subject, "style": style},
-                   host=host, port=port, regenerate=regenerate)
+                   host=host, port=port, regenerate=regenerate, negative=_negative_for(kind))
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -12,17 +12,20 @@ import { setIcons, creatureIcon, boonIcon, tombstone } from './icons.js';
 import * as WB from './wordbank.js';
 
 const DATA = '../shared_data/'; // served from the repo root (e.g. GitHub Pages / http.server)
-// Baked art styles (folders under shared_data/art/<kind>/). Chosen in Options,
-// persisted in localStorage.
-const STYLES = [
-  ['storybook', 'Storybook'],
-  ['flat-sticker', 'Flat sticker'],
-  ['enamel-pin', 'Enamel pin'],
-  ['pixel-art', 'Pixel art'],
-  ['woodcut-ink', 'Woodcut'],
-];
+// Art skins — loaded from shared_data/styles.json at boot (the single source of
+// truth). [key, label] pairs; the chosen key is persisted in localStorage and names
+// the folder under shared_data/art/<kind>/.
+let STYLES = [];
 let artStyle = localStorage.getItem('wordplay.style') || 'storybook';
 const artUrl = (kind, subject) => `${DATA}art/${kind}/${artStyle}/${subject}.png`;
+
+// The title logo for the current skin (art/logo/<style>.png), falling back to text.
+function updateTitleLogo() {
+  const img = $('title-logo');
+  img.onload = () => { img.classList.remove('hidden'); $('title-text').classList.add('hidden'); };
+  img.onerror = () => { img.classList.add('hidden'); $('title-text').classList.remove('hidden'); };
+  img.src = `${DATA}art/logo/${artStyle}.png`;
+}
 const $ = (id) => document.getElementById(id);
 
 // Show the big enemy portrait: the baked AI image if it exists, else the emoji.
@@ -54,19 +57,23 @@ const S = {}; // run state
 // --- boot --------------------------------------------------------------------
 
 async function boot() {
-  const [rules, bank, dict, icons] = await Promise.all([
+  const [rules, bank, dict, icons, styles] = await Promise.all([
     fetch(DATA + 'rules.json').then((r) => r.json()),
     fetch(DATA + 'word_bank.json').then((r) => r.json()),
     fetch(DATA + 'dictionary.json').then((r) => r.json()),
     fetch(DATA + 'icons.json').then((r) => r.json()),
+    fetch(DATA + 'styles.json').then((r) => r.json()),
   ]);
   setRules(rules);
   setIcons(icons);
+  STYLES = styles.styles.map((s) => [s.key, s.label]);
+  if (!localStorage.getItem('wordplay.style')) artStyle = styles.default;
   lexicon = new Lexicon(dict.words);
   gauntlet = new Gauntlet();
   gauntlet.setup(bank);
   wireUI();
   showBest();
+  updateTitleLogo();
   $('rules-body').textContent = RULES_TEXT;
   $('title').classList.add('show');
 }
@@ -348,7 +355,8 @@ function wireUI() {
   sel.onchange = () => {
     artStyle = sel.value;
     localStorage.setItem('wordplay.style', artStyle);
-    if (S.battle && !S.over && !S.choosing) renderEnemy(); // redraw in the new style
+    updateTitleLogo(); // swap the title logo to match the skin
+    if (S.battle && !S.over && !S.choosing) renderEnemy(); // redraw monster in the new skin
   };
   $('options').onclick = () => $('options-panel').classList.add('show');
   $('options-close').onclick = () => $('options-panel').classList.remove('show');

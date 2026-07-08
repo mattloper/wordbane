@@ -1,0 +1,31 @@
+{
+  "_note": "The game's art skins — ONE source of truth. `key` is the folder name under shared_data/art/; `label` shows in the Options picker (web + Godot); `prompt` is the style suffix the art generator appends. To ADD A SKIN: add an entry here, then run `cd ai_art_server && uv run python -m wordplay_art.bake` to generate all its assets (monsters, tombstones, boons, logo).",
+  "default": "storybook",
+  "styles": [
+    {
+      "key": "storybook",
+      "label": "Storybook",
+      "prompt": "soft painterly storybook children's-book illustration, gouache texture, warm gentle colors, soft rounded shapes, whimsical, hand-drawn, friendly, plain soft cream background"
+    },
+    {
+      "key": "flat-sticker",
+      "label": "Flat sticker",
+      "prompt": "flat vector sticker illustration, bold clean black outlines, vibrant flat colors, plain white background"
+    },
+    {
+      "key": "enamel-pin",
+      "label": "Enamel pin",
+      "prompt": "glossy enamel pin game icon, thick gold metal outline, saturated colors, subtle gradient shading, plain white background"
+    },
+    {
+      "key": "pixel-art",
+      "label": "Pixel art",
+      "prompt": "16-bit pixel art game sprite, crisp blocky pixels, limited retro palette, plain dark slate background"
+    },
+    {
+      "key": "woodcut-ink",
+      "label": "Woodcut",
+      "prompt": "black and white woodcut engraving, bold ink linework, cross-hatching, high contrast, plain white background"
+    }
+  ]
+}

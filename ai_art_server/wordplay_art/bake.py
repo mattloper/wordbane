@@ -46,16 +46,28 @@ def _jobs() -> list[tuple[str, str]]:
     return jobs
 
 
+GAME_NAME = "wordbane"  # the logo's subject; change here if the game is renamed
+
+
+def _export(src_png: Path, dst: Path, size: int) -> None:
+    img = Image.open(src_png)
+    if size < img.width:
+        img = img.resize((size, size), Image.LANCZOS)
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    img.save(dst)
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Bake AI art into shared_data/art/ for the web build.")
     p.add_argument("--model", default="flux_2_klein_9b_q8p.ckpt")
     p.add_argument("--size", type=int, default=256, help="downscaled output size (px)")
+    p.add_argument("--logo-size", type=int, default=512, help="logo size (bigger, for legible text)")
     p.add_argument("--styles", nargs="*", default=sorted(artwork.STYLES))
     p.add_argument("--port", type=int, default=7859, help="Draw Things gRPC port")
     a = p.parse_args(argv)
 
     jobs = _jobs()
-    total = len(jobs) * len(a.styles)
+    total = len(a.styles) * (len(jobs) + 1)  # +1 title logo per style
     n = 0
     for style in a.styles:
         for kind, subject in jobs:
@@ -63,15 +75,17 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[{n}/{total}] {style}/{kind}/{subject} …", flush=True)
             try:
                 src = artwork.image(kind, subject, style=style, model=a.model, port=a.port)
+                _export(src, OUT / kind / style / f"{subject}.png", a.size)
             except Exception as e:  # noqa: BLE001
                 print(f"   !! {e}", flush=True)
-                continue
-            img = Image.open(src)
-            if a.size < img.width:
-                img = img.resize((a.size, a.size), Image.LANCZOS)
-            dst = OUT / kind / style / f"{subject}.png"
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            img.save(dst)
+        # the game-title logo for this skin (one per style -> art/logo/<style>.png)
+        n += 1
+        print(f"[{n}/{total}] {style}/logo …", flush=True)
+        try:
+            src = artwork.image("logo", GAME_NAME, style=style, model=a.model, port=a.port)
+            _export(src, OUT / "logo" / f"{style}.png", a.logo_size)
+        except Exception as e:  # noqa: BLE001
+            print(f"   !! {e}", flush=True)
     print(f"DONE -> {OUT}", flush=True)
     return 0
 
