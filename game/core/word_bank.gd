@@ -8,9 +8,7 @@
 class_name WordBank
 extends RefCounted
 
-const POSITIVE := "positive"
-const NEGATIVE := "negative"
-const NEUTRAL := "neutral"
+const NEGATIVE := "negative"  # enemies are built from the "negative" vocabulary pools
 
 const KIND_FIXED := "fixed"
 const KIND_ADJ := "adjective"

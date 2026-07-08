@@ -14,19 +14,18 @@ const EMOJI_FONT_PATHS := [
 	"C:/Windows/Fonts/seguiemj.ttf",                        # Windows
 ]
 
-# word -> emoji. Covers enemy creatures + their weapon items (and a few friendlies).
-const MAP := {
-	# creatures
-	"dragon": "🐉", "ogre": "👹", "wolf": "🐺", "demon": "😈", "serpent": "🐍",
-	"goblin": "👺", "kitten": "🐱", "puppy": "🐶", "lamb": "🐑", "bunny": "🐰",
-	"fawn": "🦌", "duckling": "🐥", "knight": "🤺", "mage": "🧙", "sheep": "🐑",
-	"badger": "🦡", "heron": "🐦", "goat": "🐐",
-	# items / weapons
-	"knife": "🔪", "dagger": "🗡️", "axe": "🪓", "spear": "🔱", "blade": "🗡️",
-	"claw": "🐾", "fang": "🦷", "hex": "🔮", "curse": "💀", "jinx": "🧿",
-	"club": "🏏", "sword": "⚔️", "hammer": "🔨", "shield": "🛡️", "wand": "🪄",
-	"scroll": "📜", "spell": "✨", "potion": "🧪",
-}
+# word -> emoji, from game/data/icons.json — shared with the web build so the two
+# can't drift. Loaded once (static).
+const ICONS_PATH := "res://data/icons.json"
+static var MAP: Dictionary = _load_map()
+
+static func _load_map() -> Dictionary:
+	if FileAccess.file_exists(ICONS_PATH):
+		var f := FileAccess.open(ICONS_PATH, FileAccess.READ)
+		var parsed: Variant = JSON.parse_string(f.get_as_text())
+		if typeof(parsed) == TYPE_DICTIONARY:
+			return parsed.get("words", {})
+	return {}
 
 
 ## The emoji for a word, or "" if we have none.

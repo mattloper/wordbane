@@ -1,35 +1,24 @@
-// Emoji clipart — a word -> emoji map (ports game/core/icon_bank.gd), with sensible
-// fallbacks so every creature/weapon shows *something*. Emoji render natively in the
-// browser, so this is the web build's art (no AI daemon).
-const MAP = {
-  // creatures
-  dragon: '🐉', ogre: '👹', wolf: '🐺', demon: '😈', serpent: '🐍', goblin: '👺',
-  kitten: '🐱', puppy: '🐶', lamb: '🐑', bunny: '🐰', fawn: '🦌', duckling: '🐥',
-  knight: '🤺', mage: '🧙', sheep: '🐑', badger: '🦡', heron: '🐦', goat: '🐐',
-  // weapons / items
-  knife: '🔪', dagger: '🗡️', axe: '🪓', spear: '🔱', blade: '🗡️', claw: '🐾',
-  fang: '🦷', hex: '🔮', curse: '💀', jinx: '🧿', club: '🏏', sword: '⚔️',
-  hammer: '🔨', shield: '🛡️', wand: '🪄', scroll: '📜', spell: '✨', potion: '🧪',
-  mace: '🔨', maul: '🔨', flail: '⛓️', whip: '🪢', lance: '🔱', trident: '🔱',
-  scythe: '🌾', frost: '❄️', blaze: '🔥', quake: '🌋', squall: '🌪️', venom: '🐍',
-  toxin: '☠️', plague: '🦠', doom: '💀', wraith: '👻', specter: '👻', spike: '📌',
-};
+// Emoji clipart from the shared game/data/icons.json (same file the Godot IconBank
+// reads, so the two can't drift). setIcons() is called once at boot with the fetched
+// data; every creature/weapon shows *something* via the fallbacks.
+let ICONS = { words: {}, boons: {}, fallback: {} };
 
-// Per-boon emoji (used for the reward buttons on the web build).
-const BOON = { tough: '🛡️', mend: '🧪', focus: '🔍', double: '🪙' };
+export function setIcons(data) {
+  ICONS = { words: {}, boons: {}, fallback: {}, ...data };
+}
 
 export function iconFor(word) {
-  return MAP[String(word).toLowerCase()] || '';
+  return ICONS.words[String(word).toLowerCase()] || '';
 }
-
-// A creature always gets a face; weapons fall back to crossed swords.
 export function creatureIcon(word) {
-  return iconFor(word) || '👾';
+  return iconFor(word) || ICONS.fallback.creature || '👾';
 }
 export function weaponIcon(word) {
-  return iconFor(word) || '⚔️';
+  return iconFor(word) || ICONS.fallback.weapon || '⚔️';
 }
 export function boonIcon(id) {
-  return BOON[id] || '⭐';
+  return ICONS.boons[id] || '⭐';
 }
-export const TOMBSTONE = '🪦';
+export function tombstone() {
+  return ICONS.fallback.tombstone || '🪦';
+}

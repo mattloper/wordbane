@@ -1,7 +1,5 @@
 // Word-bank constants + item-power resolution. Mirrors game/core/word_bank.gd.
-export const POSITIVE = 'positive';
-export const NEGATIVE = 'negative';
-export const NEUTRAL = 'neutral';
+export const NEGATIVE = 'negative'; // enemies are built from the "negative" pools
 
 export const KIND_FIXED = 'fixed';
 export const KIND_ADJ = 'adjective';

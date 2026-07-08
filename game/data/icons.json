@@ -1,0 +1,20 @@
+{
+  "_note": "Word -> emoji clipart, shared by the Godot IconBank and the web build so they can't drift. Add a monster/weapon here to give it an icon in both.",
+  "words": {
+    "dragon": "🐉", "ogre": "👹", "wolf": "🐺", "demon": "😈", "serpent": "🐍",
+    "goblin": "👺", "kitten": "🐱", "puppy": "🐶", "lamb": "🐑", "bunny": "🐰",
+    "fawn": "🦌", "duckling": "🐥", "knight": "🤺", "mage": "🧙", "sheep": "🐑",
+    "badger": "🦡", "heron": "🐦", "goat": "🐐",
+
+    "knife": "🔪", "dagger": "🗡️", "axe": "🪓", "spear": "🔱", "blade": "🗡️",
+    "claw": "🐾", "fang": "🦷", "hex": "🔮", "curse": "💀", "jinx": "🧿",
+    "club": "🏏", "sword": "⚔️", "hammer": "🔨", "shield": "🛡️", "wand": "🪄",
+    "scroll": "📜", "spell": "✨", "potion": "🧪", "mace": "🔨", "maul": "🔨",
+    "flail": "⛓️", "whip": "🪢", "lance": "🔱", "trident": "🔱", "scythe": "🌾",
+    "frost": "❄️", "blaze": "🔥", "quake": "🌋", "squall": "🌪️", "venom": "🐍",
+    "toxin": "☠️", "plague": "🦠", "doom": "💀", "wraith": "👻", "specter": "👻",
+    "spike": "📌"
+  },
+  "boons": { "tough": "🛡️", "mend": "🧪", "focus": "🔍", "double": "🪙" },
+  "fallback": { "creature": "👾", "weapon": "⚔️", "tombstone": "🪦" }
+}

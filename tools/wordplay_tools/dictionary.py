@@ -1,12 +1,11 @@
-"""Build the in-game validation dictionary: word -> {pos, sentiment}.
+"""Build the in-game validation word list.
 
-The letter-ladder combat needs to answer three things about any word a player
-types: is it real, what part of speech is it, and is it positive/negative? This
-builds that lookup once, at build time, so the game ships a plain JSON table.
+The letter-pool game only needs to answer one thing about a typed word: is it
+real? So this builds a plain sorted word list once, at build time (part-of-speech
+and sentiment used to be stored too, but the pool mechanic doesn't use them).
 
-Source: WordNet for the word set + part of speech, SentiWordNet for sentiment.
-Our curated lexicon (lexicon.py) overrides tags for words it knows, so the core
-game vocabulary stays authoritative and on-theme.
+Source: WordNet for the word set, plus our curated lexicon (lexicon.py) so the
+core game vocabulary is always accepted.
 
 Run via the console script:  ``wordplay-dictionary``  (see pyproject.toml).
 """
@@ -15,54 +14,17 @@ from __future__ import annotations
 
 import argparse
 import json
-from collections import Counter
 from pathlib import Path
 
 from . import lexicon
-
-# Game-facing parts of speech.
-POS_NOUN = "noun"
-POS_ADJ = "adjective"
-POS_VERB = "verb"
-POS_OTHER = "other"
 
 # Keep words short enough to be gameable and the file small.
 MIN_LEN = 3
 MAX_LEN = 9
 
-# SentiWordNet score gap needed to call a word positive/negative (else neutral).
-SENTI_MARGIN = 0.15
-
-_WN_POS = {"n": POS_NOUN, "a": POS_ADJ, "s": POS_ADJ, "v": POS_VERB, "r": POS_OTHER}
-
 _DEFAULT_OUT = (
     Path(__file__).resolve().parents[2] / "game" / "data" / "dictionary.json"
 )
-
-
-def _all_pos(synsets) -> list[str]:
-    """Every game-POS the word can be (e.g. 'fan' is both noun and verb).
-
-    Stored as a list so the game accepts a word in any of its valid roles —
-    tagging a single 'primary' POS wrongly rejects common words.
-    """
-    found = {_WN_POS.get(s.pos(), POS_OTHER) for s in synsets}
-    order = [POS_NOUN, POS_ADJ, POS_VERB, POS_OTHER]
-    return [p for p in order if p in found]
-
-
-def _sentiment(word: str, swn) -> str:
-    """Average SentiWordNet pos/neg over ALL the word's senses, then threshold."""
-    senses = list(swn.senti_synsets(word))
-    if not senses:
-        return lexicon.NEUTRAL
-    pos = sum(s.pos_score() for s in senses) / len(senses)
-    neg = sum(s.neg_score() for s in senses) / len(senses)
-    if pos - neg >= SENTI_MARGIN:
-        return lexicon.POSITIVE
-    if neg - pos >= SENTI_MARGIN:
-        return lexicon.NEGATIVE
-    return lexicon.NEUTRAL
 
 
 def _curated_words() -> set[str]:

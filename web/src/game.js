@@ -8,7 +8,7 @@ import { Gauntlet } from './gauntlet.js';
 import { PoolBattle } from './poolbattle.js';
 import * as Boons from './boons.js';
 import { Rng } from './rng.js';
-import { creatureIcon, weaponIcon, boonIcon, TOMBSTONE } from './icons.js';
+import { setIcons, creatureIcon, boonIcon, tombstone } from './icons.js';
 import * as WB from './wordbank.js';
 
 const DATA = '../game/data/'; // served from the repo root (e.g. GitHub Pages / http.server)
@@ -28,12 +28,14 @@ const S = {}; // run state
 // --- boot --------------------------------------------------------------------
 
 async function boot() {
-  const [rules, bank, dict] = await Promise.all([
+  const [rules, bank, dict, icons] = await Promise.all([
     fetch(DATA + 'rules.json').then((r) => r.json()),
     fetch(DATA + 'word_bank.json').then((r) => r.json()),
     fetch(DATA + 'dictionary.json').then((r) => r.json()),
+    fetch(DATA + 'icons.json').then((r) => r.json()),
   ]);
   setRules(rules);
+  setIcons(icons);
   lexicon = new Lexicon(dict.words);
   gauntlet = new Gauntlet();
   gauntlet.setup(bank);
@@ -95,7 +97,7 @@ function onStrike() {
     S.score += bonus;
     S.hp = S.battle.player_hp;
     logMsg(`Chapter ${S.chapter} cleared!  (+${bonus} score)  Choose a reward.`);
-    $('portrait').textContent = TOMBSTONE; // R.I.P.
+    $('portrait').textContent = tombstone(); // R.I.P.
     offerBoons();
     return;
   }
