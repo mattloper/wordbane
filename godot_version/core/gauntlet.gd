@@ -29,6 +29,12 @@ func _neg(kind: String) -> Array:
 	return _pools.get(kind, {}).get(WordBank.NEGATIVE, [])
 
 
+## Creatures to draw enemies from: the menacing (negative) ones plus the neutral
+## ones (knight, mage, badger…). The cutesy "positive" pool stays out.
+func _creatures() -> Array:
+	return _neg(WordBank.KIND_CREATURE) + _pools.get(WordBank.KIND_CREATURE, {}).get("neutral", [])
+
+
 func _pick(arr: Array) -> Dictionary:
 	return rng.pick(arr)
 
@@ -48,7 +54,7 @@ func _danger_adjectives() -> Array:
 func generate(round: int) -> Dictionary:
 	var num_items: int = clampi(1 + int((round - 1) / 2.0), 1, MAX_ITEMS)
 	var adjs := _danger_adjectives()
-	var creature := _pick(_neg(WordBank.KIND_CREATURE))
+	var creature := _pick(_creatures())
 	var owner_adj := _pick(adjs)
 
 	var tokens: Array = []

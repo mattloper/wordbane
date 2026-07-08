@@ -14,7 +14,7 @@ extends Control
 
 const BANK_PATH := "res://../shared_data/word_bank.json"
 const DICT_PATH := "res://../shared_data/dictionary.json"
-const MONSTER_PX := 220  # enemy portrait size (monster drawn with its weapons)
+const MONSTER_PX := 220  # enemy portrait size (the monster alone)
 
 const COL_BG := UI.BG
 const COL_PANEL := UI.PANEL
@@ -160,10 +160,10 @@ func _show_placeholder() -> void:
 	_portrait.visible = true
 
 
-## Request the enemy portrait — the monster drawn WITH its weapons, from a noun
-## phrase (no adjectives, so it caches per creature+weapons).
+## Request the enemy portrait — the monster alone (its creature noun), so it caches
+## per creature (a small fixed set). Weapons are shown as the letter tiles.
 func _request_portrait() -> void:
-	_show_art("portrait", _portrait_subject(_battle.enemy))
+	_show_art("creature", _owner_of(_battle.enemy))
 
 
 ## Fetch a piece of art and show it in the portrait slot once it arrives — but only
@@ -178,37 +178,17 @@ func _show_art(kind: String, subject: String) -> void:
 			_portrait.visible = false)
 
 
-## The noun phrase an enemy's portrait is drawn from: creature + weapon nouns, no
-## adjectives — e.g. "a dragon monster wielding a axe and a hex".
-func _portrait_subject(enemy: Dictionary) -> String:
-	var phrase := "a %s monster" % _owner_of(enemy)
-	var weapons: Array = _weapons_of(enemy)
-	if not weapons.is_empty():
-		var held: Array = weapons.map(func(w): return "a " + w)
-		phrase += " wielding " + " and ".join(held)
-	return phrase
-
-
 ## On victory: swap the monster for the defeated creature's tombstone (prefetched,
 ## so it's usually instant).
 func _show_tombstone(creature: String) -> void:
 	_show_art("tombstone", creature)
 
 
-## Generate the next chapter's enemy now and warm its monster + weapon art in the
-## background, so it's instant when we get there. That same enemy is reused on advance.
+## Generate the next chapter's enemy now and warm its monster art in the background,
+## so it's instant when we get there. That same enemy is reused on advance.
 func _prefetch_next() -> void:
 	_next_enemy = _gauntlet.generate(_chapter + 1)
-	_art.prefetch("portrait", _portrait_subject(_next_enemy), _style, _model)
-
-
-## The weapon nouns of an enemy (its item tokens), for prompts/prefetch.
-func _weapons_of(enemy: Dictionary) -> Array:
-	var out: Array = []
-	for t in enemy.get("tokens", []):
-		if t.get("kind", "") == WordBank.KIND_ITEM:
-			out.append(t.get("text", ""))
-	return out
+	_art.prefetch("creature", _owner_of(_next_enemy), _style, _model)
 
 
 func _owner_of(enemy: Dictionary) -> String:
@@ -565,15 +545,14 @@ func _on_menu_id(id: int) -> void:
 		2: get_tree().change_scene_to_file("res://title.tscn")
 
 
-## Style/model was changed in the Options overlay mid-run: re-read and redraw the
-## current monster + weapons, and re-warm the next chapter + boon icons in the new look.
+## Style/model was changed in the Options overlay mid-run: re-read and redraw the## current monster, and re-warm the next chapter + boon icons in the new look.
 func _on_art_settings_changed() -> void:
 	_style = Settings.get_style()
 	_model = Settings.get_model()
 	_show_placeholder()
 	_request_portrait()
 	if not _next_enemy.is_empty():
-		_art.prefetch("portrait", _portrait_subject(_next_enemy), _style, _model)
+		_art.prefetch("creature", _owner_of(_next_enemy), _style, _model)
 	_prefetch_boons()
 
 

@@ -33,7 +33,7 @@ def main() -> None:
         for creature in CREATURES:
             n += 1
             print(f"[{n}/{total}] {style} / {creature} …", flush=True)
-            prompt = artwork.build_prompt("portrait", f"a {creature} monster wielding a sword", style)
+            prompt = artwork.build_prompt("creature", creature, style)
             imgs = generate(prompt=prompt, model=artwork.MODEL,
                             negative_prompt=artwork.NEGATIVE, seed=42)
             if not imgs:

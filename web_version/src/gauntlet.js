@@ -32,6 +32,11 @@ export class Gauntlet {
     return (this._pools[kind] || {})[WB.NEGATIVE] || [];
   }
 
+  // Menacing (negative) creatures + the neutral ones; the cutesy pool stays out.
+  _creatures() {
+    return this._neg(WB.KIND_CREATURE).concat((this._pools[WB.KIND_CREATURE] || {}).neutral || []);
+  }
+
   _pick(arr) {
     return this.rng.pick(arr);
   }
@@ -54,7 +59,7 @@ export class Gauntlet {
   generate(round) {
     const numItems = Math.max(1, Math.min(this.maxItemsClamped(round), tuning.maxItems()));
     const adjs = this._dangerAdjectives();
-    const creature = this._pick(this._neg(WB.KIND_CREATURE));
+    const creature = this._pick(this._creatures());
     const ownerAdj = this._pick(adjs);
 
     const tokens = [];

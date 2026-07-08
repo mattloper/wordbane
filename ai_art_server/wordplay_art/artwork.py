@@ -68,11 +68,12 @@ def _styled(subject: str, style: str) -> str:
     return f"{subject}, {STYLES.get(style, STYLES[DEFAULT_STYLE])}."
 
 
-def _portrait_prompt(subject: str, style: str) -> str:
-    # `subject` is a noun phrase built from the monster + its weapon NOUNS (no
-    # adjectives), e.g. "a dragon monster wielding an axe and a hex" — so the image
-    # caches per (creature, weapons) instead of busting on every adjective combo.
-    return _styled(f"{subject}, a single full-body character, centered", style)
+def _creature_prompt(creature: str, style: str) -> str:
+    # Just the monster, no weapons — so the image caches per creature (a small,
+    # fixed set) instead of per creature+weapon combo. The weapons are shown in the
+    # UI as the letter tiles anyway.
+    c = (creature or "creature").strip().lower()
+    return _styled(f"a single full-body {c} monster character, centered", style)
 
 
 def _boon_prompt(boon_id: str, style: str) -> str:
@@ -87,7 +88,7 @@ def _tombstone_prompt(creature: str, style: str) -> str:
 
 
 PROMPTS = {
-    "portrait": _portrait_prompt,
+    "creature": _creature_prompt,
     "boon": _boon_prompt,
     "tombstone": _tombstone_prompt,
 }
