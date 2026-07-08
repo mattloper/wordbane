@@ -65,52 +65,42 @@ def _sentiment(word: str, swn) -> str:
     return lexicon.NEUTRAL
 
 
-def _curated_overrides() -> dict:
-    """Tags for words our lexicon already defines, mapped to game POS names."""
-    kind_to_pos = {
-        lexicon.KIND_CREATURE: POS_NOUN,
-        lexicon.KIND_ITEM: POS_NOUN,
-        lexicon.KIND_ADJ: POS_ADJ,
-    }
-    out: dict = {}
-    for word, meta in lexicon.word_index().items():
-        pos = kind_to_pos.get(meta["kind"])
-        if pos:
-            out[word] = {"pos": [pos], "sentiment": meta["sentiment"]}
-    return out
+def _curated_words() -> set[str]:
+    """Words our lexicon already uses (creatures/items/adjectives), so they're always
+    valid to type even if WordNet misses one."""
+    game_kinds = {lexicon.KIND_CREATURE, lexicon.KIND_ITEM, lexicon.KIND_ADJ}
+    return {w for w, meta in lexicon.word_index().items() if meta["kind"] in game_kinds}
 
 
-def build_dictionary() -> dict:
-    from nltk.corpus import sentiwordnet as swn
+def build_dictionary() -> list[str]:
+    """The set of real, gameable words — membership only. The letter-pool game just
+    needs 'is this a word?', so we no longer store part-of-speech or sentiment (they
+    were vestigial from the old ladder mechanic, and dropping them shrinks the file
+    ~5x)."""
     from nltk.corpus import wordnet as wn
 
-    entries: dict = {}
+    words: set[str] = set()
     for lemma in wn.all_lemma_names():
         if not lemma.isalpha() or not lemma.islower():
             continue
         if not (MIN_LEN <= len(lemma) <= MAX_LEN):
             continue
-        synsets = wn.synsets(lemma)
-        if not synsets:
-            continue
-        entries[lemma] = {
-            "pos": _all_pos(synsets),
-            "sentiment": _sentiment(lemma, swn),
-        }
+        if wn.synsets(lemma):
+            words.add(lemma)
 
-    entries.update(_curated_overrides())  # curated tags win
-    return entries
+    words |= _curated_words()
+    return sorted(words)
 
 
 def write_dictionary(out_path: Path) -> dict:
-    entries = build_dictionary()
+    words = build_dictionary()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "min_len": MIN_LEN,
         "max_len": MAX_LEN,
-        "count": len(entries),
-        "words": entries,
+        "count": len(words),
+        "words": words,
     }
     out_path.write_text(json.dumps(payload) + "\n", encoding="utf-8")
     return payload
@@ -122,15 +112,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     payload = write_dictionary(args.out)
-    words = payload["words"]
-    by_pos = Counter(p for v in words.values() for p in v["pos"])
-    by_sent = Counter(v["sentiment"] for v in words.values())
+    words = set(payload["words"])
     size_kb = args.out.stat().st_size / 1024
     print(f"Wrote {args.out}  ({payload['count']} words, {size_kb:.0f} KB)")
-    print(f"  by pos      : {dict(by_pos)}")
-    print(f"  by sentiment: {dict(by_sent)}")
     for w in ["dragon", "darn", "road", "fine", "knife", "nag", "adorn", "gore"]:
-        print(f"  {w:8} -> {words.get(w, 'NOT FOUND')}")
+        print(f"  {w:8} -> {'ok' if w in words else 'NOT FOUND'}")
     return 0
 
 

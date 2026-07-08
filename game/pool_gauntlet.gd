@@ -424,7 +424,7 @@ func _render_enemy() -> void:
 	for token in tokens:
 		var is_weapon: bool = token.get("kind", "") == WordBank.KIND_ITEM
 		var lbl := _label(token.get("text", ""), 20)
-		lbl.add_theme_color_override("font_color", WordStyle.NEGATIVE if is_weapon else COL_MUTED)
+		lbl.add_theme_color_override("font_color", UI.DANGER if is_weapon else COL_MUTED)
 		_sentence.add_child(lbl)
 
 	# Letter pool: a tile per letter with its point value (rare ones highlighted).
@@ -759,7 +759,7 @@ func _build_game_over() -> void:
 	sb.set_corner_radius_all(12)
 	sb.set_content_margin_all(28)
 	sb.set_border_width_all(3)
-	sb.border_color = WordStyle.NEGATIVE
+	sb.border_color = UI.DANGER
 	card.add_theme_stylebox_override("panel", sb)
 	center.add_child(card)
 
@@ -771,7 +771,7 @@ func _build_game_over() -> void:
 
 	var title := _label("GAME OVER", 52)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_color_override("font_color", WordStyle.NEGATIVE)
+	title.add_theme_color_override("font_color", UI.DANGER)
 	box.add_child(title)
 
 	_gameover_stats = _label("", 18)

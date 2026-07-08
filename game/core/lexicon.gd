@@ -10,7 +10,7 @@
 class_name Lexicon
 extends RefCounted
 
-var words: Dictionary = {}  # word -> {pos, sentiment}
+var words: Dictionary = {}  # word -> true (a set; membership is all the game needs)
 
 # Rarity weight per letter (Scrabble English values): rare letters hit harder.
 # Sourced from rules.json (Rules) so the Godot game and any port stay in sync.
@@ -23,7 +23,12 @@ static func load_from(path: String) -> Lexicon:
 		var f := FileAccess.open(path, FileAccess.READ)
 		var parsed: Variant = JSON.parse_string(f.get_as_text())
 		if typeof(parsed) == TYPE_DICTIONARY:
-			lex.words = parsed.get("words", {})
+			var w: Variant = parsed.get("words", [])
+			if w is Array:  # slim format: a plain word list -> build a set for O(1) lookup
+				for word in w:
+					lex.words[word] = true
+			elif w is Dictionary:  # legacy {word: {...}} format
+				lex.words = w
 	if lex.words.is_empty():
 		push_error("dictionary not found/empty: %s" % path)
 	return lex
@@ -31,9 +36,6 @@ static func load_from(path: String) -> Lexicon:
 
 func is_word(w: String) -> bool:
 	return words.has(w.to_lower())
-
-func tags(w: String) -> Dictionary:
-	return words.get(w.to_lower(), {})
 
 
 # --- letters & rarity --------------------------------------------------------
@@ -116,7 +118,7 @@ func best_word(letters: String, used: Array) -> String:
 
 ## Validate a typed strike against a set of `letters` (the enemy's pool). Must be a
 ## real word, not already `used`, and share at least one of those letters.
-## Returns {ok, reason, dealt, sentiment} (dealt/sentiment only when ok).
+## Returns {ok, reason, dealt} (dealt only when ok).
 func validate(typed: String, letters: String, used: Array) -> Dictionary:
 	var w := typed.strip_edges().to_lower()
 	if w == "":
@@ -127,5 +129,4 @@ func validate(typed: String, letters: String, used: Array) -> Dictionary:
 		return {"ok": false, "reason": "'%s' isn't in the dictionary" % w}
 	if not shares_letter(w, letters):
 		return {"ok": false, "reason": "'%s' uses none of its letters" % w}
-	return {"ok": true, "reason": "", "dealt": overlap_damage(w, letters),
-		"sentiment": tags(w).get("sentiment", "neutral")}
+	return {"ok": true, "reason": "", "dealt": overlap_damage(w, letters)}

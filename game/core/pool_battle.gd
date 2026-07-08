@@ -59,7 +59,7 @@ static func seed_enemy(e: Dictionary) -> void:
 static func weapon_words(tokens: Array) -> Array:
 	var out: Array = []
 	for t in tokens:
-		if t.get("kind", "") == WordBank.KIND_ITEM and t.get("sentiment", "") == WordBank.NEGATIVE:
+		if t.get("kind", "") == WordBank.KIND_ITEM:
 			out.append(String(t.get("text", "")).to_lower())
 	return out
 
@@ -68,7 +68,7 @@ static func weapon_words(tokens: Array) -> Array:
 static func weapon_letters(tokens: Array) -> Array:
 	var set: Dictionary = {}
 	for t in tokens:
-		if t.get("kind", "") == WordBank.KIND_ITEM and t.get("sentiment", "") == WordBank.NEGATIVE:
+		if t.get("kind", "") == WordBank.KIND_ITEM:
 			for ch in Lexicon.distinct_letters(t.get("text", "")):
 				set[ch] = true
 	var out: Array = set.keys()
@@ -80,7 +80,7 @@ static func weapon_letters(tokens: Array) -> Array:
 static func max_bite(tokens: Array) -> int:
 	var worst := 0
 	for t in tokens:
-		if t.get("kind", "") == WordBank.KIND_ITEM and t.get("sentiment", "") == WordBank.NEGATIVE:
+		if t.get("kind", "") == WordBank.KIND_ITEM:
 			worst = maxi(worst, int(WordBank.item_power(tokens, int(t.get("item_index", -1))).get("amount", 0)))
 	return worst
 

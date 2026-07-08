@@ -9,6 +9,7 @@ const PANEL := Color(0.16, 0.17, 0.23)
 const SELECT := Color(1.0, 0.86, 0.3)
 const MUTED := Color(0.55, 0.56, 0.64)
 const TEXT := Color(0.85, 0.87, 0.93)
+const DANGER := Color(0.97, 0.40, 0.42)  # weapons / enemy accents
 
 
 ## A Label with a font size and colour, word-wrapping on.
