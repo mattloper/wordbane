@@ -1,7 +1,12 @@
 # Architecture
 
-How Wordplay is put together, for anyone changing more than the JSON in `shared_data/`.
+How Wordbane is put together, for anyone changing more than the JSON in `shared_data/`.
 For playing and light modding, the top-level [README](../README.md) is enough.
+
+> **Branch layout.** This doc describes the whole design, both builds. The **`main`**
+> branch is the web build (`web_version/`); the Godot "deluxe" build (`godot_version/`)
+> lives on the **`godot`** branch. So paths below under `godot_version/` refer to that
+> branch. `godot` = `main` + `godot_version/`, so merge `main → godot` to keep it current.
 
 ## Two builds, one source of truth
 

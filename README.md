@@ -48,24 +48,26 @@ Save the file, refresh the page. Done.
 
 Want to change the **actual rules**? The game's brains are small, readable
 JavaScript files in **`web_version/src/`**. Edit, refresh — no build step. (After
-changing those, run `node web_version/test/conformance.js` to make sure the two
-versions of the game still agree — see [docs/](docs/ARCHITECTURE.md).)
+changing those, run `node web_version/test/conformance.js` to check it still
+passes the golden tests — see [docs/](docs/ARCHITECTURE.md).)
 
 ## What's in here
 
 ```
 web_version/    ▶ the game you play in a browser — start here
 shared_data/    ★ the game's content, as plain text — edit this
-godot_version/    a fancier version with AI-drawn monsters (needs the Godot app)
 docs/           how it all works, for developers
 ```
 
 (`wordlist_generator/` and `ai_art_server/` are optional extras — see the docs.)
 
-There are **two versions** of the same game: the **web** one (simple, runs
-anywhere — play & tinker with this), and the **Godot** one (prettier, draws each
-monster with a local AI, but needs a Mac set up for it). Both read the same
-`shared_data/`, so a change shows up in both.
+The monster art is real AI art, generated with a local tool and **baked into
+`shared_data/art/`**, so it ships with the game — no setup needed to see it. If you
+want to regenerate it or add your own art "skin," that's what `ai_art_server/` is
+for (see the [docs](docs/ARCHITECTURE.md)).
+
+<sub>There's also a fancier **Godot** build (same game, draws each monster live) on
+the [`godot`](../../tree/godot) branch — needs a Mac set up for it.</sub>
 
 ## License
 
