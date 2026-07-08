@@ -8,7 +8,7 @@ Usage:
     uv run python -m wordplay_art.client echo
     uv run python -m wordplay_art.client generate \
         --model flux_2_klein_9b_q8p.ckpt --prompt "a fierce cartoon dragon" \
-        --out ../game/data/art/dragon.png --width 512 --height 512 --steps 6
+        --out dragon.png --width 512 --height 512 --steps 6
 """
 from __future__ import annotations
 

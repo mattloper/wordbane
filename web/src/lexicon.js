@@ -1,4 +1,4 @@
-// The word dictionary + the letter-rarity scoring. Mirrors game/core/lexicon.gd.
+// The word dictionary + the letter-rarity scoring. Mirrors godot/core/lexicon.gd.
 // Pure functions on data; no UI.
 import { section } from './rules.js';
 

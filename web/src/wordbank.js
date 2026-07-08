@@ -1,4 +1,4 @@
-// Word-bank constants + item-power resolution. Mirrors game/core/word_bank.gd.
+// Word-bank constants + item-power resolution. Mirrors godot/core/word_bank.gd.
 export const NEGATIVE = 'negative'; // enemies are built from the "negative" pools
 
 export const KIND_FIXED = 'fixed';

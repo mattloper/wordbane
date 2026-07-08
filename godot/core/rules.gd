@@ -1,11 +1,11 @@
-## Loads game/data/rules.json — the single source of truth for tuning + catalogs,
+## Loads data/rules.json — the single source of truth for tuning + catalogs,
 ## so the Godot game and any future port read identical numbers. Other core classes
 ## (Lexicon, Gauntlet, Boons) back their tuning with these, keeping their public
 ## names (e.g. Gauntlet.START_HP) unchanged.
 class_name Rules
 extends RefCounted
 
-const PATH := "res://data/rules.json"
+const PATH := "res://../data/rules.json"
 
 static var DATA: Dictionary = _load()
 

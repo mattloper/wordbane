@@ -14,9 +14,9 @@ const EMOJI_FONT_PATHS := [
 	"C:/Windows/Fonts/seguiemj.ttf",                        # Windows
 ]
 
-# word -> emoji, from game/data/icons.json — shared with the web build so the two
+# word -> emoji, from data/icons.json — shared with the web build so the two
 # can't drift. Loaded once (static).
-const ICONS_PATH := "res://data/icons.json"
+const ICONS_PATH := "res://../data/icons.json"
 static var MAP: Dictionary = _load_map()
 
 static func _load_map() -> Dictionary:

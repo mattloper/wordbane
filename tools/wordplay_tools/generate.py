@@ -19,7 +19,7 @@ from pathlib import Path
 from . import lexicon, parse
 
 _DEFAULT_OUT = (
-    Path(__file__).resolve().parents[2] / "game" / "data" / "word_bank.json"
+    Path(__file__).resolve().parents[2] / "data" / "word_bank.json"
 )
 
 

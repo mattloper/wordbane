@@ -1,5 +1,5 @@
 // Generates an escalating run of enemies from the word-bank pools. Mirrors
-// game/core/gauntlet.gd — including the exact RNG draw order, so a given seed
+// godot/core/gauntlet.gd — including the exact RNG draw order, so a given seed
 // produces the same enemies as the Godot version.
 import { num } from './rules.js';
 import * as WB from './wordbank.js';

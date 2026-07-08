@@ -1,4 +1,4 @@
-// Between-chapter rewards. Mirrors game/core/boons.gd. Catalog + params come from
+// Between-chapter rewards. Mirrors godot/core/boons.gd. Catalog + params come from
 // rules.json; offer() returns resolved instances {id, label, desc, arg}; apply()
 // mutates a state dict {hp, max_hp, hints, letter_mult} in place.
 import { section } from './rules.js';

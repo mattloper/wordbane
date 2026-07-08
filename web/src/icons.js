@@ -1,4 +1,4 @@
-// Emoji clipart from the shared game/data/icons.json (same file the Godot IconBank
+// Emoji clipart from the shared data/icons.json (same file the Godot IconBank
 // reads, so the two can't drift). setIcons() is called once at boot with the fetched
 // data; every creature/weapon shows *something* via the fallbacks.
 let ICONS = { words: {}, boons: {}, fallback: {} };
