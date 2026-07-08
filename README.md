@@ -1,84 +1,71 @@
 # Wordplay
 
-A tiny turn-based **word battler**. Each enemy is a **pool of letters**; you beat
-it by typing real words made from those letters. Rare letters (`j x q z`) hit
-hardest, but you can whittle anything down with common ones — so you never get
-stuck, you just get rewarded for a good vocabulary.
+A tiny **word battle** game. Each enemy is a bunch of **letters**; you beat it by
+typing real words made from those letters. Bigger, rarer words hit harder.
 
-> 🐉 A savage **dragon** wields a cruel **axe** and a wicked **hex**.
-> Its letters: `a c e h u x`. Type `hue` (h+e+u = 6) or land the big `hex` letters…
+> A dragon shows up wielding a **knife** → its letters are **e f i k n**.
+> Type **`fine`** → f+i+n+e = **7 damage**. (Rare letters are worth more: `k` alone
+> is 5, `q` and `z` are 10.)
 
-It runs in a browser with **no install** and is **easy to tinker with** — most of
-the game is plain JSON you can edit in a text editor.
+Runs in a browser, no install. And it's easy to mess with — most of the game is
+plain text files you can edit.
 
 ## Play it
 
-It's a static web page; it just needs to be *served* (browsers block loading data
-straight from a file). From the repo root:
+It just needs to be *served* (a browser won't load the game's files straight off
+disk). From this folder, run:
 
 ```bash
 python3 -m http.server 8000
 ```
 
-then open **<http://localhost:8000/web_version/>**.
+Then open **<http://localhost:8000/web_version/>** and hit **Play**.
 
-*(Once it's hosted on GitHub Pages it'll be a plain link — no server needed.)*
+*(When it's put online it'll just be a link — nothing to run.)*
 
-## How it plays
+## How to play
 
-- Each enemy shows its **letters** and an **HP bar** (= the total rarity weight of
-  those letters). Common letters are worth 1; `k`=5, `j x`=8, `q z`=10.
-- On your turn, **type any real word** that uses at least one of its letters. It
-  deals damage equal to the rarity weight of the letters it covers.
-- **Drain the HP to 0** to clear the chapter and pick a **reward** (boon).
-- The enemy **hits you every turn**, harder the deeper you go — so kill fast.
-- You **can't reuse a word** in a run, and you can't just type the enemy's own
-  weapon words. You lose at 0 HP. Score = damage dealt + how deep you reach.
+- Each enemy has a row of **letters** and an **HP bar** (its size = the letters'
+  total worth: common letters = 1, `k` = 5, `j` `x` = 8, `q` `z` = 10).
+- **Type any real word** that uses at least one of those letters. It deals damage
+  equal to the letters it covers — so long, rare-letter words hit hardest.
+- Drain the HP to **0** to win the round and pick a **reward**.
+- The enemy **hits back every turn**, harder the deeper you get — so win fast.
+- You can't repeat a word, and you can't just type the enemy's own weapon. You
+  lose at 0 HP.
 
-## Modify it
+## Change it
 
-You can change a *lot* without touching code — it's all plain JSON in **`shared_data/`**:
+Loads of it is just text you can edit in **`shared_data/`** — no coding:
 
-| To change… | Edit | Example |
+| To change… | Edit this file | For example |
 |---|---|---|
-| **Tuning & rewards** | `shared_data/rules.json` | letter values, starting HP, score rates, the boon list |
-| **Monsters, weapons, adjectives** | `shared_data/word_bank.json` | add to `pools.creature.negative`, `pools.item.negative`, … |
-| **A monster/weapon's emoji** | `shared_data/icons.json` | `"griffin": "🦅"` |
+| numbers & rewards | `shared_data/rules.json` | letter values, starting HP, the reward list |
+| monsters & weapons | `shared_data/word_bank.json` | add words to the `creature` / `item` pools |
+| a monster's emoji | `shared_data/icons.json` | `"griffin": "🦅"` |
 
-Edit a file, refresh the browser — done. (Both the web and Godot versions read
-the same `shared_data/`, so a change shows up in both.)
+Save the file, refresh the page. Done.
 
-Want to change the **rules themselves**? The game logic is small, readable
-JavaScript in **`web_version/src/`** (`lexicon.js`, `poolbattle.js`, `gauntlet.js`,
-`boons.js`). Edit, refresh — no build step.
-
-> After changing shared logic, run `node web_version/test/conformance.js` — it checks the
-> JS against a set of golden vectors so the two builds stay in sync. See
-> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+Want to change the **actual rules**? The game's brains are small, readable
+JavaScript files in **`web_version/src/`**. Edit, refresh — no build step. (After
+changing those, run `node web_version/test/conformance.js` to make sure the two
+versions of the game still agree — see [docs/](docs/ARCHITECTURE.md).)
 
 ## What's in here
 
 ```
-wordplay/
-├── web_version/     ▶ the browser game — play & hack this (no install)
-├── shared_data/    ★ the game's content — plain JSON, edit to change the game
-├── godot_version/     a fancier build in the Godot engine, with AI-generated art
-├── wordlist_generator/     optional Python scripts that regenerate the word list
-├── ai_art_server/       optional AI-art pipeline (Draw Things) for the Godot build
-└── docs/      how it's built, for developers
+web_version/    ▶ the game you play in a browser — start here
+shared_data/    ★ the game's content, as plain text — edit this
+godot_version/    a fancier version with AI-drawn monsters (needs the Godot app)
+docs/           how it all works, for developers
 ```
 
-There are **two builds** of the same game:
+(`wordlist_generator/` and `ai_art_server/` are optional extras — see the docs.)
 
-- **`web_version/`** — the shared, install-free one. This is the one to play and modify.
-- **`godot_version/`** — a local "deluxe" version in the [Godot](https://godotengine.org/)
-  engine that draws each monster with a local AI image model. Nice to look at, but
-  needs a Mac + [Draw Things](https://drawthings.ai/) set up; the web version is
-  the accessible one.
-
-Both read the same `shared_data/` and are held in sync by a shared test suite — see
-**[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for how that works, the Godot
-build, and the word-list generator.
+There are **two versions** of the same game: the **web** one (simple, runs
+anywhere — play & tinker with this), and the **Godot** one (prettier, draws each
+monster with a local AI, but needs a Mac set up for it). Both read the same
+`shared_data/`, so a change shows up in both.
 
 ## License
 
