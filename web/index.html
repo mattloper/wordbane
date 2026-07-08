@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Wordplay</title>
+  <style>
+    :root {
+      --bg: #1c1f2b; --panel: #292b3b; --select: #ffdb4d; --muted: #8c8fa3;
+      --text: #d9deed; --danger: #f7666b; --tile: #383b4d; --tile-rare: #4d4224;
+      --hit-enemy: #fff28c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      -webkit-text-size-adjust: 100%;
+    }
+    #app { max-width: 780px; margin: 0 auto; padding: 18px; }
+    .panel { background: var(--panel); border-radius: 8px; padding: 14px; margin-bottom: 12px; }
+    .muted { color: var(--muted); }
+    .row { display: flex; align-items: center; gap: 12px; }
+    button {
+      font: inherit; font-size: 16px; color: var(--text); background: #3d4050;
+      border: 1px solid var(--muted); border-radius: 6px; padding: 8px 16px; cursor: pointer;
+    }
+    button:hover { filter: brightness(1.12); }
+    button.primary { background: var(--select); color: #1c1c26; border: none; font-weight: 600; }
+    button.ghost { background: transparent; }
+
+    /* header */
+    header { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 12px; }
+    header .title { color: var(--muted); font-size: 15px; }
+    #chapter { color: var(--select); font-size: 28px; font-weight: 700; }
+    #score { font-size: 18px; }
+
+    /* enemy */
+    #enemy-head { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+    #enemy-row { display: flex; gap: 16px; align-items: flex-start; }
+    #portrait-holder { position: relative; width: 150px; height: 150px; flex: none;
+      display: flex; align-items: center; justify-content: center; }
+    #portrait { font-size: 110px; line-height: 1; transition: transform .15s; }
+    #atk-badge { position: absolute; top: 2px; left: 2px; background: #8c2224e0;
+      color: #fff2ee; border-radius: 7px; padding: 1px 8px; font-size: 20px; font-weight: 700; }
+    #enemy-text { flex: 1; min-width: 0; }
+    #sentence { font-size: 20px; margin-bottom: 10px; line-height: 1.5; }
+    #sentence .weapon { color: var(--danger); }
+    #sentence .plain { color: var(--muted); }
+    .hpbar { flex: 1; height: 16px; background: #00000055; border-radius: 8px; overflow: hidden; }
+    .hpbar > i { display: block; height: 100%; transition: width .4s cubic-bezier(.3,.7,.3,1); }
+    #enemy-hpfill { background: #e66b6b; }
+    #you-hpfill { background: #5fb06a; }
+    #letters { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .tile { width: 40px; text-align: center; }
+    .tile .box { background: var(--tile); border-radius: 6px; padding: 5px 0;
+      border: 2px solid transparent; }
+    .tile.hot .box { background: var(--tile-rare); border-color: var(--select); }
+    .tile .glyph { font-size: 22px; font-weight: 600; }
+    .tile.hot .glyph { color: var(--select); }
+    .tile .pts { font-size: 11px; color: var(--muted); }
+    .tile.hot .pts { color: var(--select); }
+    .tile .bar { height: 3px; margin-top: 2px; border-radius: 2px; background: var(--hit-enemy); visibility: hidden; }
+    .tile.used .bar { visibility: visible; }
+
+    /* action */
+    #action-line { text-align: center; min-height: 22px; margin-bottom: 8px; }
+    #controls { display: flex; align-items: center; justify-content: center; gap: 8px; flex-wrap: wrap; }
+    #dmg-box { width: 64px; text-align: center; }
+    #dmg { font-size: 34px; color: var(--select); font-weight: 700; line-height: 1; }
+    #dmg-cap { font-size: 10px; color: var(--muted); }
+    #entry { font: inherit; font-size: 18px; padding: 8px 12px; width: 260px; max-width: 55vw;
+      background: #14161f; color: var(--text); border: 1px solid var(--muted); border-radius: 6px; }
+    #boons { display: flex; gap: 10px; justify-content: center; margin-top: 12px; flex-wrap: wrap; }
+    .boon { width: 150px; height: 150px; display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 4px; text-align: center; }
+    .boon .emoji { font-size: 56px; line-height: 1; }
+    .boon .label { font-weight: 600; }
+    .boon .desc { font-size: 12px; color: var(--muted); }
+
+    /* you */
+    #log { min-height: 84px; font-size: 13px; color: #ccd; white-space: pre-line; }
+
+    /* overlays */
+    .overlay { position: fixed; inset: 0; background: #000000a8; display: none;
+      align-items: center; justify-content: center; padding: 20px; }
+    .overlay.show { display: flex; }
+    .card { background: var(--panel); border-radius: 12px; padding: 28px; max-width: 460px;
+      text-align: center; border: 2px solid var(--select); }
+    .card.danger { border-color: var(--danger); }
+    .card h1 { margin: 0 0 6px; }
+    #title-card h1 { color: var(--select); font-size: 56px; letter-spacing: 2px; }
+    #gameover-card h1 { color: var(--danger); font-size: 48px; }
+    .card p { color: var(--text); }
+    .menu { display: flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+    .menu button { min-width: 220px; margin: 0 auto; }
+    #rules-body { text-align: left; font-size: 15px; line-height: 1.5; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="title">Wordplay</div>
+      <div id="chapter">CHAPTER 1</div>
+      <div id="score">SCORE 0</div>
+    </header>
+
+    <div class="panel">
+      <div id="enemy-head"></div>
+      <div id="enemy-row">
+        <div id="portrait-holder">
+          <div id="portrait">👾</div>
+          <div id="atk-badge">⚔ 0</div>
+        </div>
+        <div id="enemy-text">
+          <div id="sentence"></div>
+          <div class="row">
+            <div id="enemy-hplabel" style="font-size:16px"></div>
+            <div class="hpbar"><i id="enemy-hpfill" style="width:100%"></i></div>
+          </div>
+          <div id="letters"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="action-line" class="muted"></div>
+    <div id="controls">
+      <div id="dmg-box"><div id="dmg">0</div><div id="dmg-cap">DMG</div></div>
+      <input id="entry" placeholder="Try any word…" autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <button id="strike" class="primary">Strike</button>
+      <button id="hint" class="hidden">Hint</button>
+    </div>
+    <div id="boons"></div>
+
+    <div class="panel" style="margin-top:12px">
+      <div class="muted" style="font-size:13px">YOU</div>
+      <div class="row" style="margin-top:6px">
+        <div id="you-hplabel" style="font-size:18px"></div>
+        <div class="hpbar"><i id="you-hpfill" style="width:100%"></i></div>
+        <div id="spent" class="muted" style="font-size:13px"></div>
+      </div>
+    </div>
+
+    <div class="panel"><div id="log"></div></div>
+    <div style="text-align:center"><button id="newrun" class="ghost">New Run</button></div>
+  </div>
+
+  <!-- Title screen -->
+  <div id="title" class="overlay">
+    <div id="title-card" class="card">
+      <h1>WORDPLAY</h1>
+      <p class="muted">a letter-pool word battler</p>
+      <p id="best" class="muted"></p>
+      <div class="menu">
+        <button id="play" class="primary">Play</button>
+        <button id="howto" class="ghost">How to play</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- How to play -->
+  <div id="rules" class="overlay">
+    <div class="card">
+      <h1 style="color:var(--select);font-size:26px">How to play</h1>
+      <div id="rules-body"></div>
+      <div class="menu"><button id="rules-close" class="primary">Got it</button></div>
+    </div>
+  </div>
+
+  <!-- Game over -->
+  <div id="gameover" class="overlay">
+    <div id="gameover-card" class="card danger">
+      <h1>GAME OVER</h1>
+      <p id="gameover-stats" style="color:var(--select);font-size:18px"></p>
+      <div class="menu row" style="flex-direction:row;justify-content:center">
+        <button id="go-newrun" class="primary">New Run</button>
+        <button id="go-menu" class="ghost">Main Menu</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./src/game.js"></script>
+</body>
+</html>
