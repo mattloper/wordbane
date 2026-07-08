@@ -1,21 +1,21 @@
 # wordplay-tools
 
-Build-time tooling that regenerates the two committed data files: `../data/word_bank.json`
+Build-time tooling that regenerates the two committed data files: `../shared_data/word_bank.json`
 (the enemy vocabulary pools — creatures, weapons, adjectives) and
-`../data/dictionary.json` (the ~50k valid words, a plain sorted list the game uses
+`../shared_data/dictionary.json` (the ~50k valid words, a plain sorted list the game uses
 to check "is this a real word?").
 
 You **don't need this to play or mod** — both files are committed. Regenerate only
 if you edit the curated vocabulary. Quick version:
 
 ```bash
-cd tools
+cd wordlist_generator
 uv venv
 uv pip install -e ".[dev]"                        # installs spaCy + nltk + pytest
 uv run python -m spacy download en_core_web_sm     # one-time English model
 uv run python -m nltk.downloader wordnet omw-1.4   # one-time WordNet corpus
-uv run wordplay-generate                           # -> ../data/word_bank.json
-uv run wordplay-dictionary                         # -> ../data/dictionary.json
+uv run wordplay-generate                           # -> ../shared_data/word_bank.json
+uv run wordplay-dictionary                         # -> ../shared_data/dictionary.json
 uv run pytest
 ```
 

@@ -12,8 +12,8 @@
 ## Run with:  godot --path game pool_gauntlet.tscn
 extends Control
 
-const BANK_PATH := "res://../data/word_bank.json"
-const DICT_PATH := "res://../data/dictionary.json"
+const BANK_PATH := "res://../shared_data/word_bank.json"
+const DICT_PATH := "res://../shared_data/dictionary.json"
 const MONSTER_PX := 220  # enemy portrait size (monster drawn with its weapons)
 
 const COL_BG := UI.BG

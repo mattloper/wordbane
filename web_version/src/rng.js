@@ -1,4 +1,4 @@
-// A tiny seedable PRNG — mulberry32 — mirroring godot/core/rng.gd exactly, so the
+// A tiny seedable PRNG — mulberry32 — mirroring godot_version/core/rng.gd exactly, so the
 // browser game and the Godot game produce identical sequences from the same seed.
 // Single 32-bit state, trivial to serialize (persist/resume a run).
 export class Rng {

@@ -6,7 +6,7 @@
 ##
 ## Also owns the daemon's lifecycle for convenience:
 ##  - polls /health every few seconds and emits `daemon_status_changed`,
-##  - launches the daemon itself (via art/.venv) if it's down, and kills that
+##  - launches the daemon itself (via ai_art_server/.venv) if it's down, and kills that
 ##    instance on exit (only the one we started).
 ## If the daemon is unreachable, portrait requests fail quietly and the caller
 ## keeps its emoji fallback.
@@ -155,7 +155,7 @@ func _maybe_launch() -> void:
 
 func _venv_python() -> String:
 	var repo := ProjectSettings.globalize_path("res://").trim_suffix("/").get_base_dir()
-	return repo.path_join("art/.venv/bin/python")
+	return repo.path_join("ai_art_server/.venv/bin/python")
 
 
 func _exit_tree() -> void:

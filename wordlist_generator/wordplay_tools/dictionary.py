@@ -23,7 +23,7 @@ MIN_LEN = 3
 MAX_LEN = 9
 
 _DEFAULT_OUT = (
-    Path(__file__).resolve().parents[2] / "data" / "dictionary.json"
+    Path(__file__).resolve().parents[2] / "shared_data" / "dictionary.json"
 )
 
 

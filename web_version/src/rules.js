@@ -1,6 +1,6 @@
 // Holds the shared tuning/catalog data (data/rules.json) — the SAME file the
 // Godot game reads. Set once at startup (Node reads the file; the browser fetches
-// it). Mirrors godot/core/rules.gd. `RULES` is a live binding, so importers see the
+// it). Mirrors godot_version/core/rules.gd. `RULES` is a live binding, so importers see the
 // value after setRules() runs.
 export let RULES = {};
 

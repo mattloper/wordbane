@@ -1,4 +1,4 @@
-// One letter-pool battle. Mirrors godot/core/pool_battle.gd.
+// One letter-pool battle. Mirrors godot_version/core/pool_battle.gd.
 import * as Lex from './lexicon.js';
 import * as WB from './wordbank.js';
 

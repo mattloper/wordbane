@@ -11,7 +11,7 @@ import { Rng } from './rng.js';
 import { setIcons, creatureIcon, boonIcon, tombstone } from './icons.js';
 import * as WB from './wordbank.js';
 
-const DATA = '../data/'; // served from the repo root (e.g. GitHub Pages / http.server)
+const DATA = '../shared_data/'; // served from the repo root (e.g. GitHub Pages / http.server)
 const $ = (id) => document.getElementById(id);
 const RULES_TEXT =
   'Each enemy is a POOL OF LETTERS with an HP bar equal to their total rarity weight.\n\n' +

@@ -33,10 +33,10 @@ var _known_cache: Dictionary = {}  # "letters|maxlen" -> PackedStringArray (capp
 
 
 func _initialize() -> void:
-	_lexicon = Lexicon.load_from("res://../data/dictionary.json")
+	_lexicon = Lexicon.load_from("res://../shared_data/dictionary.json")
 	_prep()
 	var g := Gauntlet.new()
-	g.setup(WordBank.load_bank("res://../data/word_bank.json"))
+	g.setup(WordBank.load_bank("res://../shared_data/word_bank.json"))
 
 	var tiers: Array = VOCAB_LENS
 	var args := OS.get_cmdline_user_args()

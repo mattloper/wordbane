@@ -18,7 +18,7 @@ func _check(cond: bool, msg: String) -> void:
 func _initialize() -> void:
 	print("Wordplay selftest")
 
-	var bank := WordBank.load_bank("res://../data/word_bank.json")
+	var bank := WordBank.load_bank("res://../shared_data/word_bank.json")
 	_check(not bank.is_empty(), "word bank loads")
 	var pools: Dictionary = bank.get("pools", {})
 	_check(pools.has("creature") and pools.has("item") and pools.has("adjective"),
@@ -38,7 +38,7 @@ func _initialize() -> void:
 	_check(Lexicon.overlap_damage("vex", "hex") == 9, "damage = weight of covered letters (vex vs hex = 9)")
 	_check(Lexicon.overlap_damage("art", "rat") == 3, "full-coverage word deals full HP (art vs rat = 3)")
 
-	var wl := Lexicon.load_from("res://../data/dictionary.json")
+	var wl := Lexicon.load_from("res://../shared_data/dictionary.json")
 	_check(not wl.words.is_empty(), "dictionary loads")
 	_check(wl.is_word("knife") and wl.is_word("fine"), "known words present")
 
@@ -137,7 +137,7 @@ func _initialize() -> void:
 ## Run the language-neutral golden vectors in data/conformance.json. A JS/HTML port
 ## runs the SAME file with an equivalent runner — matching outputs = no drift.
 func _run_conformance(wl: Lexicon, bank: Dictionary) -> void:
-	var c := JsonFile.load_dict("res://../data/conformance.json")
+	var c := JsonFile.load_dict("res://../shared_data/conformance.json")
 	var n := 0
 
 	for t in c["letter_weight"]:

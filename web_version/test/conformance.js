@@ -1,7 +1,7 @@
 // Runs data/conformance.json against the JS core — the SAME fixtures the Godot
 // selftest runs. Matching outputs = the two implementations haven't drifted.
 //
-//   node web/test/conformance.js
+//   node web_version/test/conformance.js
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -12,7 +12,7 @@ import * as Boons from '../src/boons.js';
 import { Gauntlet } from '../src/gauntlet.js';
 import { Rng } from '../src/rng.js';
 
-const DATA = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'data');
+const DATA = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'shared_data');
 const readJson = (f) => JSON.parse(readFileSync(join(DATA, f), 'utf8'));
 
 setRules(readJson('rules.json'));

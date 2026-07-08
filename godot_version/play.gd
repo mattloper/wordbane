@@ -9,8 +9,8 @@
 ##   godot --headless --script res://play.gd -- pass
 extends SceneTree
 
-const BANK_PATH := "res://../data/word_bank.json"
-const DICT_PATH := "res://../data/dictionary.json"
+const BANK_PATH := "res://../shared_data/word_bank.json"
+const DICT_PATH := "res://../shared_data/dictionary.json"
 const STATE_PATH := "user://wp_run.json"
 
 var _lexicon: Lexicon

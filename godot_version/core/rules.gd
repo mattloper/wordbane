@@ -5,7 +5,7 @@
 class_name Rules
 extends RefCounted
 
-const PATH := "res://../data/rules.json"
+const PATH := "res://../shared_data/rules.json"
 
 static var DATA: Dictionary = _load()
 

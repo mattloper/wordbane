@@ -20,7 +20,7 @@ straight from a file). From the repo root:
 python3 -m http.server 8000
 ```
 
-then open **<http://localhost:8000/web/>**.
+then open **<http://localhost:8000/web_version/>**.
 
 *(Once it's hosted on GitHub Pages it'll be a plain link — no server needed.)*
 
@@ -37,22 +37,22 @@ then open **<http://localhost:8000/web/>**.
 
 ## Modify it
 
-You can change a *lot* without touching code — it's all plain JSON in **`data/`**:
+You can change a *lot* without touching code — it's all plain JSON in **`shared_data/`**:
 
 | To change… | Edit | Example |
 |---|---|---|
-| **Tuning & rewards** | `data/rules.json` | letter values, starting HP, score rates, the boon list |
-| **Monsters, weapons, adjectives** | `data/word_bank.json` | add to `pools.creature.negative`, `pools.item.negative`, … |
-| **A monster/weapon's emoji** | `data/icons.json` | `"griffin": "🦅"` |
+| **Tuning & rewards** | `shared_data/rules.json` | letter values, starting HP, score rates, the boon list |
+| **Monsters, weapons, adjectives** | `shared_data/word_bank.json` | add to `pools.creature.negative`, `pools.item.negative`, … |
+| **A monster/weapon's emoji** | `shared_data/icons.json` | `"griffin": "🦅"` |
 
 Edit a file, refresh the browser — done. (Both the web and Godot versions read
-the same `data/`, so a change shows up in both.)
+the same `shared_data/`, so a change shows up in both.)
 
 Want to change the **rules themselves**? The game logic is small, readable
-JavaScript in **`web/src/`** (`lexicon.js`, `poolbattle.js`, `gauntlet.js`,
+JavaScript in **`web_version/src/`** (`lexicon.js`, `poolbattle.js`, `gauntlet.js`,
 `boons.js`). Edit, refresh — no build step.
 
-> After changing shared logic, run `node web/test/conformance.js` — it checks the
+> After changing shared logic, run `node web_version/test/conformance.js` — it checks the
 > JS against a set of golden vectors so the two builds stay in sync. See
 > [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
@@ -60,23 +60,23 @@ JavaScript in **`web/src/`** (`lexicon.js`, `poolbattle.js`, `gauntlet.js`,
 
 ```
 wordplay/
-├── web/     ▶ the browser game — play & hack this (no install)
-├── data/    ★ the game's content — plain JSON, edit to change the game
-├── godot/     a fancier build in the Godot engine, with AI-generated art
-├── tools/     optional Python scripts that regenerate the word list
-├── art/       optional AI-art pipeline (Draw Things) for the Godot build
+├── web_version/     ▶ the browser game — play & hack this (no install)
+├── shared_data/    ★ the game's content — plain JSON, edit to change the game
+├── godot_version/     a fancier build in the Godot engine, with AI-generated art
+├── wordlist_generator/     optional Python scripts that regenerate the word list
+├── ai_art_server/       optional AI-art pipeline (Draw Things) for the Godot build
 └── docs/      how it's built, for developers
 ```
 
 There are **two builds** of the same game:
 
-- **`web/`** — the shared, install-free one. This is the one to play and modify.
-- **`godot/`** — a local "deluxe" version in the [Godot](https://godotengine.org/)
+- **`web_version/`** — the shared, install-free one. This is the one to play and modify.
+- **`godot_version/`** — a local "deluxe" version in the [Godot](https://godotengine.org/)
   engine that draws each monster with a local AI image model. Nice to look at, but
   needs a Mac + [Draw Things](https://drawthings.ai/) set up; the web version is
   the accessible one.
 
-Both read the same `data/` and are held in sync by a shared test suite — see
+Both read the same `shared_data/` and are held in sync by a shared test suite — see
 **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for how that works, the Godot
 build, and the word-list generator.
 

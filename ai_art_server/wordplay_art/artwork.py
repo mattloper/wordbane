@@ -41,7 +41,7 @@ STYLES = {
 }
 DEFAULT_STYLE = "storybook"
 
-# Boon icons: a single evocative object per reward id (matches godot/core/boons.gd).
+# Boon icons: a single evocative object per reward id (matches godot_version/core/boons.gd).
 BOON_ICONS = {
     "tough": "a sturdy round shield with a heart emblem, symbol of toughness",
     "mend": "a glowing red healing potion bottle, symbol of mending",

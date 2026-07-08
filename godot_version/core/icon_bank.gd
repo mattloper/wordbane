@@ -16,7 +16,7 @@ const EMOJI_FONT_PATHS := [
 
 # word -> emoji, from data/icons.json — shared with the web build so the two
 # can't drift. Loaded once (static).
-const ICONS_PATH := "res://../data/icons.json"
+const ICONS_PATH := "res://../shared_data/icons.json"
 static var MAP: Dictionary = _load_map()
 
 static func _load_map() -> Dictionary:
