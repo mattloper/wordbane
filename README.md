@@ -1,180 +1,84 @@
 # Wordplay
 
-A turn-based word-battle game. Each **character is a sentence**. The sentence's
-**subject is its "owner"** (the creature itself); every **other noun is an item**.
-Owners deal no damage — only items do. **Adjectives are multipliers** that scale
-the item they modify.
+A tiny turn-based **word battler**. Each enemy is a **pool of letters**; you beat
+it by typing real words made from those letters. Rare letters (`j x q z`) hit
+hardest, but you can whittle anything down with common ones — so you never get
+stuck, you just get rewarded for a good vocabulary.
 
-> 🐉 `The fierce dragon swings a sharp knife and casts a wicked hex.`
-> &nbsp;&nbsp;&nbsp;&nbsp;owner = **dragon** · items = **sharp knife** (HP attack), **wicked hex** (word attack)
+> 🐉 A savage **dragon** wields a cruel **axe** and a wicked **hex**.
+> Its letters: `a c e h u x`. Type `hue` (h+e+u = 6) or land the big `hex` letters…
+
+It runs in a browser with **no install** and is **easy to tinker with** — most of
+the game is plain JSON you can edit in a text editor.
+
+## Play it
+
+It's a static web page; it just needs to be *served* (browsers block loading data
+straight from a file). From the repo root:
+
+```bash
+python3 -m http.server 8000
+```
+
+then open **<http://localhost:8000/web/>**.
+
+*(Once it's hosted on GitHub Pages it'll be a plain link — no server needed.)*
 
 ## How it plays
 
-- **Your turn:** click one of *your* item words to use it.
-- **Enemy turn:** the enemy cycles through its items in a **fixed, telegraphed
-  order** — you always see what it will do next (Inscryption-style).
-- Every action is one of two kinds:
-  - **General attack** → direct **HP** damage. Amount = the item noun's base power
-    × its adjective multiplier (e.g. `knife` base 2 × `sharp` ×1.5 = **3**).
-  - **Word-randomization attack** → scrambles the opponent's words (same part of
-    speech), which can change their items *and* their sentiment.
-- **Items come in four types:**
+- Each enemy shows its **letters** and an **HP bar** (= the total rarity weight of
+  those letters). Common letters are worth 1; `k`=5, `j x`=8, `q z`=10.
+- On your turn, **type any real word** that uses at least one of its letters. It
+  deals damage equal to the rarity weight of the letters it covers.
+- **Drain the HP to 0** to clear the chapter and pick a **reward** (boon).
+- The enemy **hits you every turn**, harder the deeper you go — so kill fast.
+- You **can't reuse a word** in a run, and you can't just type the enemy's own
+  weapon words. You lose at 0 HP. Score = damage dealt + how deep you reach.
 
-  | type | offensive/defensive | effect |
-  |------|---------------------|--------|
-  | `hp_attack`    | offensive | direct HP damage |
-  | `word_attack`  | offensive | randomizes opponent words |
-  | `hp_defense`   | defensive | restores your HP |
-  | `word_defense` | defensive | raises **wards** that block incoming randomization |
+## Modify it
 
-- **Max HP = the number of words** in your sentence.
-- **Win** by either **defeating** the enemy (HP → 0) *or* **pacifying** it
-  (randomize its words until **none are negative**).
-- **Lose** if **your HP** hits 0. (Corruption doesn't kill you — only HP does.)
+You can change a *lot* without touching code — it's all plain JSON in **`data/`**:
 
-## Architecture
+| To change… | Edit | Example |
+|---|---|---|
+| **Tuning & rewards** | `data/rules.json` | letter values, starting HP, score rates, the boon list |
+| **Monsters, weapons, adjectives** | `data/word_bank.json` | add to `pools.creature.negative`, `pools.item.negative`, … |
+| **A monster/weapon's emoji** | `data/icons.json` | `"griffin": "🦅"` |
 
-The NLP runs **at build time** in Python, so the game ships pure data and needs
-no Python runtime:
+Edit a file, refresh the browser — done. (Both the web and Godot versions read
+the same `data/`, so a change shows up in both.)
 
-```
-tools/   →  Python (uv): curated combat lexicon + spaCy sentence parsing.
-            Emits ↓
-game/data/word_bank.json   →  read by ↓
-game/    →  Godot 4.6 project: combat engine + UI.
-```
+Want to change the **rules themselves**? The game logic is small, readable
+JavaScript in **`web/src/`** (`lexicon.js`, `poolbattle.js`, `gauntlet.js`,
+`boons.js`). Edit, refresh — no build step.
 
-- **Owner via syntax** — spaCy's dependency parse finds the grammatical **subject**
-  (`nsubj`); that's the owner. Other nouns become items. spaCy's POS tags are noisy
-  on terse fantasy text, so the curated lexicon is the authority on each word's
-  *kind* while spaCy supplies the *structure* (subject + which noun each adjective
-  modifies). See `tools/wordplay_tools/parse.py`.
-- **Items & multipliers** — the lexicon assigns each item noun an `item_type` +
-  `base` power and each adjective a `mult`. `parse.py` links adjectives to the noun
-  they modify, so `item power = base × ∏(adjective mults)`.
-- **Pure logic** — `game/game_logic.gd` (`GameLogic`) holds all combat rules with
-  no UI, so it's unit-tested headlessly.
+> After changing shared logic, run `node web/test/conformance.js` — it checks the
+> JS against a set of golden vectors so the two builds stay in sync. See
+> [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## Prerequisites
-
-- [Godot 4.6+](https://godotengine.org/) (`godot` on PATH)
-- [uv](https://docs.astral.sh/uv/)
-
-## Setup
-
-### 1. Generate the word bank (Python / uv)
-
-```bash
-cd tools
-uv venv
-uv pip install -e ".[dev]"                       # installs spaCy + pytest
-uv run python -m spacy download en_core_web_sm    # one-time: the English model
-uv run wordplay-generate                          # writes ../game/data/word_bank.json
-uv run pytest
-```
-
-`word_bank.json` is committed, so you can run the game without regenerating — but
-re-run `wordplay-generate` whenever you edit the lexicon or characters.
-
-Without the spaCy model the generator still works via a heuristic owner detector
-(`uv run wordplay-generate --no-spacy`); spaCy is the intended path.
-
-### 2. Run the game (Godot)
-
-```bash
-godot --path game            # or open game/ in the editor and press F5
-```
-
-## Project layout
+## What's in here
 
 ```
 wordplay/
-├── README.md  ·  .gitignore
-├── tools/                       # Python build tooling (uv project)
-│   ├── pyproject.toml
-│   ├── wordplay_tools/
-│   │   ├── lexicon.py           # creatures, typed items, multiplier adjectives,
-│   │   │                        #   and the character sentences
-│   │   ├── parse.py             # spaCy owner/item/adjective parsing (+ fallback)
-│   │   └── generate.py          # builds word_bank.json
-│   └── tests/test_generate.py
-└── game/                        # Godot 4.6 project
-    ├── project.godot
-    ├── core/                    # view-agnostic logic (class_name globals)
-    │   ├── game_logic.gd        #   GameLogic — pure combat rules
-    │   ├── battle.gd            #   Battle — item-combat turn machine (older mode)
-    │   ├── lexicon.gd           #   Lexicon — dictionary + letter-rarity scoring
-    │   ├── pool_battle.gd       #   PoolBattle — one drain-the-letter-pool fight
-    │   ├── boons.gd             #   Boons — between-chapter reward catalog + effects
-    │   ├── gauntlet.gd          #   Gauntlet — escalating enemy generator
-    │   ├── combat_text.gd       #   CombatText — shared phrasing
-    │   └── word_style.gd        #   WordStyle — shared word colours
-    ├── pool_gauntlet.tscn / .gd # ★ Letter-Pool Gauntlet — the current game
-    ├── play.gd                  # headless CLI to play the gauntlet
-    ├── main.tscn / main.gd      # 2D item-combat view (older mode)
-    ├── world.tscn / world.gd    # 3D item-combat view (older mode)
-    ├── selftest.gd              # headless smoke test
-    └── data/
-        ├── word_bank.json       # characters + word pools (generated)
-        └── dictionary.json      # 50k words -> {pos, sentiment} (generated)
+├── web/     ▶ the browser game — play & hack this (no install)
+├── data/    ★ the game's content — plain JSON, edit to change the game
+├── godot/     a fancier build in the Godot engine, with AI-generated art
+├── tools/     optional Python scripts that regenerate the word list
+├── art/       optional AI-art pipeline (Draw Things) for the Godot build
+└── docs/      how it's built, for developers
 ```
 
-## The game: Letter-Pool Gauntlet
+There are **two builds** of the same game:
 
-`godot --path game pool_gauntlet.tscn` (or play it headless via `play.gd`, below).
+- **`web/`** — the shared, install-free one. This is the one to play and modify.
+- **`godot/`** — a local "deluxe" version in the [Godot](https://godotengine.org/)
+  engine that draws each monster with a local AI image model. Nice to look at, but
+  needs a Mac + [Draw Things](https://drawthings.ai/) set up; the web version is
+  the accessible one.
 
-Descend a gauntlet of escalating enemies. Each enemy shows a **pool of letters**
-(the distinct letters of its red weapon-nouns) and an **HP bar** equal to their
-total rarity weight — common letters (`e a t`) score 1, rare ones a lot (`k`=5,
-`j x`=8, `q z`=10). On your turn **type ANY real word that uses at least one of its
-letters**; it deals damage equal to the **rarity weight of the letters it covers**,
-draining the bar. Rare letters are a big burst (landing an `X` is +8) but never
-required — you can whittle any enemy down with common letters, so you never get
-walled. Drain HP to 0 to descend. Every turn the enemy hits you for a flat amount
-that climbs with depth, so drawn-out fights cost you. HP recovers only via boons;
-you lose at 0 HP, and your score rewards the damage you deal + the depth you reach.
-
-Why it takes thought: you must (a) find a hard-hitting word from its letters
-(vocabulary), (b) kill fast — every extra turn is another full hit — and (c) never
-reuse a word, so variety runs down. The rare tiles (`j x q z`) are where the big,
-run-defining hits come from.
-
-### Play it from the command line (`play.gd`)
-
-```bash
-godot --headless --path game --script res://play.gd -- new
-godot --headless --path game --script res://play.gd -- move <word>
-godot --headless --path game --script res://play.gd -- pass
-```
-Run state persists between calls, so each invocation is one move.
-
-Both views are thin: they render a `Battle` and forward clicks. The shared
-`core/` classes hold all rules, flow, and presentation strings, so the 2D and 3D
-scenes never duplicate logic.
-
-## Testing
-
-```bash
-cd tools && uv run pytest                                   # Python tooling
-godot --headless --path game --script res://selftest.gd     # Godot combat logic
-```
-
-## Extending it
-
-- **Words / item powers / multipliers** → edit `tools/wordplay_tools/lexicon.py`
-  (`CREATURES`, `ITEMS`, `ADJECTIVES`).
-- **New characters** → add a sentence to `CHARACTER_SENTENCES`; the parser finds
-  its owner and items automatically. Keep one subject + a couple of object nouns.
-- **Difficulty / feel** → tweak base powers and multipliers in the lexicon.
-- Re-run `uv run wordplay-generate` after any lexicon change.
-
-## Ideas / next steps
-
-- Let the player *target* which enemy word a randomizer scrambles (currently random).
-- Multi-sentence characters; status effects; an energy economy so turns are choices.
-- Smarter enemy AI instead of a fixed cycle (the cycle is intentional for now —
-  it's the telegraph).
-- Richer sentiment/POS from a larger model instead of the curated lexicon.
+Both read the same `data/` and are held in sync by a shared test suite — see
+**[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** for how that works, the Godot
+build, and the word-list generator.
 
 ## License
 
