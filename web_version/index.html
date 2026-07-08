@@ -40,6 +40,9 @@
     #portrait-holder { position: relative; width: 150px; height: 150px; flex: none;
       display: flex; align-items: center; justify-content: center; }
     #portrait { font-size: 110px; line-height: 1; transition: transform .15s; }
+    #portrait-img { position: absolute; inset: 0; width: 100%; height: 100%;
+      object-fit: contain; transition: transform .15s; }
+    .boon .art { width: 96px; height: 96px; object-fit: contain; }
     #atk-badge { position: absolute; top: 2px; left: 2px; background: #8c2224e0;
       color: #fff2ee; border-radius: 7px; padding: 1px 8px; font-size: 20px; font-weight: 700; }
     #enemy-text { flex: 1; min-width: 0; }
@@ -109,6 +112,7 @@
       <div id="enemy-head"></div>
       <div id="enemy-row">
         <div id="portrait-holder">
+          <img id="portrait-img" class="hidden" alt="" />
           <div id="portrait">👾</div>
           <div id="atk-badge">⚔ 0</div>
         </div>

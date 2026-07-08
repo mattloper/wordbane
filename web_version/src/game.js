@@ -12,7 +12,24 @@ import { setIcons, creatureIcon, boonIcon, tombstone } from './icons.js';
 import * as WB from './wordbank.js';
 
 const DATA = '../shared_data/'; // served from the repo root (e.g. GitHub Pages / http.server)
+const ART_STYLE = 'storybook'; // which baked art style the web build uses
+const artUrl = (kind, subject) => `${DATA}art/${kind}/${ART_STYLE}/${subject}.png`;
 const $ = (id) => document.getElementById(id);
+
+// Show the big enemy portrait: the baked AI image if it exists, else the emoji.
+function showPortrait(kind, subject, emoji) {
+  const img = $('portrait-img');
+  img.onload = () => {
+    img.classList.remove('hidden');
+    $('portrait').classList.add('hidden');
+  };
+  img.onerror = () => {
+    img.classList.add('hidden');
+    $('portrait').classList.remove('hidden');
+    $('portrait').textContent = emoji;
+  };
+  img.src = artUrl(kind, subject);
+}
 const RULES_TEXT =
   'Each enemy is a POOL OF LETTERS with an HP bar equal to their total rarity weight.\n\n' +
   'Type ANY real word using its letters — it deals damage equal to the rarity weight of the ' +
@@ -97,7 +114,7 @@ function onStrike() {
     S.score += bonus;
     S.hp = S.battle.player_hp;
     logMsg(`Chapter ${S.chapter} cleared!  (+${bonus} score)  Choose a reward.`);
-    $('portrait').textContent = tombstone(); // R.I.P.
+    showPortrait('tombstone', S.creature || '', tombstone()); // R.I.P.
     offerBoons();
     return;
   }
@@ -141,7 +158,11 @@ function offerBoons() {
   for (const boon of Boons.offer(S.rng)) {
     const btn = document.createElement('button');
     btn.className = 'boon';
-    btn.innerHTML = `<div class="emoji">${boonIcon(boon.id)}</div><div class="label">${boon.label}</div><div class="desc">${boon.desc}</div>`;
+    btn.innerHTML =
+      `<img class="art hidden" alt="" src="${artUrl('boon', boon.id)}"` +
+      ` onload="this.classList.remove('hidden');this.nextElementSibling.classList.add('hidden')">` +
+      `<div class="emoji">${boonIcon(boon.id)}</div>` +
+      `<div class="label">${boon.label}</div><div class="desc">${boon.desc}</div>`;
     btn.onclick = () => takeBoon(boon);
     row.appendChild(btn);
   }
@@ -190,7 +211,8 @@ function render() {
 function renderEnemy() {
   const tokens = S.battle.enemy.tokens || [];
   const owner = tokens.find((t) => t.kind === WB.KIND_CREATURE && t.is_owner);
-  if (!S.choosing && !S.over) $('portrait').textContent = creatureIcon(owner ? owner.text : '');
+  S.creature = owner ? owner.text : '';
+  if (!S.choosing && !S.over) showPortrait('creature', S.creature, creatureIcon(S.creature));
 
   $('sentence').innerHTML = tokens
     .map((t) => {
@@ -256,9 +278,10 @@ function setHp(who, hp, max) {
   $(`${who}-hpfill`).style.width = `${max > 0 ? Math.max(0, (hp / max) * 100) : 0}%`;
 }
 function lungePortrait() {
-  const p = $('portrait');
-  p.style.transform = 'translateX(14px) scale(1.25)';
-  setTimeout(() => (p.style.transform = ''), 130);
+  for (const p of [$('portrait'), $('portrait-img')]) {
+    p.style.transform = 'translateX(14px) scale(1.25)';
+    setTimeout(() => (p.style.transform = ''), 130);
+  }
 }
 function logMsg(text) {
   S.log.push(text);
