@@ -359,7 +359,7 @@ func _take_boon(boon: Dictionary) -> void:
 func _render() -> void:
 	_chapter_label.text = "CHAPTER %d" % _chapter
 	_score_label.text = "SCORE %d" % _score
-	_enemy_head.text = "ENEMY   ·   spell words from its letters (reuse freely; not its own weapon words) to drain its HP"
+	_enemy_head.text = "Turn its weapons against it by using their letters"
 
 	_render_enemy()
 

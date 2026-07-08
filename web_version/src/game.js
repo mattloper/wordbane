@@ -197,7 +197,7 @@ function render() {
   $('chapter').textContent = `CHAPTER ${S.chapter}`;
   $('score').textContent = `SCORE ${S.score}`;
   $('enemy-head').textContent =
-    'ENEMY  ·  spell words from its letters (reuse freely; not its own weapon words) to drain its HP';
+    'Turn its weapons against it by using their letters';
 
   renderEnemy();
   const fighting = !S.over && !S.choosing;
@@ -352,6 +352,17 @@ function wireUI() {
   };
   $('options').onclick = () => $('options-panel').classList.add('show');
   $('options-close').onclick = () => $('options-panel').classList.remove('show');
+
+  // In-game hamburger menu.
+  const closeMenu = () => $('menu').classList.add('hidden');
+  $('menu-btn').onclick = (e) => {
+    e.stopPropagation();
+    $('menu').classList.toggle('hidden');
+  };
+  $('menu-howto').onclick = () => { closeMenu(); $('rules').classList.add('show'); };
+  $('menu-options').onclick = () => { closeMenu(); $('options-panel').classList.add('show'); };
+  $('menu-main').onclick = () => { closeMenu(); showBest(); $('title').classList.add('show'); };
+  document.addEventListener('click', closeMenu); // click anywhere else closes it
 }
 
 boot();
