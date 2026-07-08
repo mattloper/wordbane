@@ -12,8 +12,17 @@ import { setIcons, creatureIcon, boonIcon, tombstone } from './icons.js';
 import * as WB from './wordbank.js';
 
 const DATA = '../shared_data/'; // served from the repo root (e.g. GitHub Pages / http.server)
-const ART_STYLE = 'storybook'; // which baked art style the web build uses
-const artUrl = (kind, subject) => `${DATA}art/${kind}/${ART_STYLE}/${subject}.png`;
+// Baked art styles (folders under shared_data/art/<kind>/). Chosen in Options,
+// persisted in localStorage.
+const STYLES = [
+  ['storybook', 'Storybook'],
+  ['flat-sticker', 'Flat sticker'],
+  ['enamel-pin', 'Enamel pin'],
+  ['pixel-art', 'Pixel art'],
+  ['woodcut-ink', 'Woodcut'],
+];
+let artStyle = localStorage.getItem('wordplay.style') || 'storybook';
+const artUrl = (kind, subject) => `${DATA}art/${kind}/${artStyle}/${subject}.png`;
 const $ = (id) => document.getElementById(id);
 
 // Show the big enemy portrait: the baked AI image if it exists, else the emoji.
@@ -331,6 +340,18 @@ function wireUI() {
     showBest();
     $('title').classList.add('show');
   };
+
+  // Options: pick the baked art style.
+  const sel = $('style-select');
+  sel.innerHTML = STYLES.map(([k, label]) => `<option value="${k}">${label}</option>`).join('');
+  sel.value = artStyle;
+  sel.onchange = () => {
+    artStyle = sel.value;
+    localStorage.setItem('wordplay.style', artStyle);
+    if (S.battle && !S.over && !S.choosing) renderEnemy(); // redraw in the new style
+  };
+  $('options').onclick = () => $('options-panel').classList.add('show');
+  $('options-close').onclick = () => $('options-panel').classList.remove('show');
 }
 
 boot();
