@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import ssl
 import sys
 
 import grpc
@@ -39,14 +40,28 @@ DEFAULT_PORT = 7859
 _MAX_MSG = 256 * 1024 * 1024  # images can be big; lift the 4MB gRPC default
 
 
+def _tls_creds(host: str, port: int):
+    """If the server is speaking TLS, grab its (self-signed) cert and trust it;
+    return None if it's plain gRPC. Draw Things resets "Use TLS" to ON on every
+    launch, so we detect the mode per-connection instead of hard-coding it — the
+    client then works whether TLS is on or off, with no toggling. Draw Things' cert
+    lists 127.0.0.1 in its SAN, so verification passes with no name override."""
+    try:
+        cert = ssl.get_server_certificate((host, port), timeout=2)
+    except (ssl.SSLError, OSError):
+        return None  # not TLS -> use an insecure channel
+    return grpc.ssl_channel_credentials(root_certificates=cert.encode())
+
+
 def _channel(host: str, port: int) -> grpc.Channel:
-    return grpc.insecure_channel(
-        f"{host}:{port}",
-        options=[
-            ("grpc.max_receive_message_length", _MAX_MSG),
-            ("grpc.max_send_message_length", _MAX_MSG),
-        ],
-    )
+    opts = [
+        ("grpc.max_receive_message_length", _MAX_MSG),
+        ("grpc.max_send_message_length", _MAX_MSG),
+    ]
+    creds = _tls_creds(host, port)
+    if creds is None:
+        return grpc.insecure_channel(f"{host}:{port}", options=opts)
+    return grpc.secure_channel(f"{host}:{port}", creds, options=opts)
 
 
 def build_configuration(
