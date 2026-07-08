@@ -202,8 +202,4 @@ func _save(run: Dictionary) -> void:
 
 
 func _load() -> Dictionary:
-	if not FileAccess.file_exists(STATE_PATH):
-		return {}
-	var f := FileAccess.open(STATE_PATH, FileAccess.READ)
-	var parsed: Variant = JSON.parse_string(f.get_as_text())
-	return parsed if typeof(parsed) == TYPE_DICTIONARY else {}
+	return JsonFile.load_dict(STATE_PATH)

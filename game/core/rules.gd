@@ -11,12 +11,10 @@ static var DATA: Dictionary = _load()
 
 
 static func _load() -> Dictionary:
-	if not FileAccess.file_exists(PATH):
-		push_error("rules.json not found: %s" % PATH)
-		return {}
-	var f := FileAccess.open(PATH, FileAccess.READ)
-	var parsed: Variant = JSON.parse_string(f.get_as_text())
-	return parsed if typeof(parsed) == TYPE_DICTIONARY else {}
+	var data := JsonFile.load_dict(PATH)
+	if data.is_empty():
+		push_error("rules.json not found/empty: %s" % PATH)
+	return data
 
 
 static func section(name: String) -> Dictionary:

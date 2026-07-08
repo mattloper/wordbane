@@ -19,17 +19,10 @@ const HP_ATTACK := "hp_attack"
 
 
 static func load_bank(path: String) -> Dictionary:
-	if not FileAccess.file_exists(path):
-		push_error("word bank not found: %s" % path)
-		return {}
-	var f := FileAccess.open(path, FileAccess.READ)
-	if f == null:
-		return {}
-	var parsed: Variant = JSON.parse_string(f.get_as_text())
-	if typeof(parsed) != TYPE_DICTIONARY:
-		push_error("word bank is not a JSON object")
-		return {}
-	return parsed
+	var bank := JsonFile.load_dict(path)
+	if bank.is_empty():
+		push_error("word bank not found/empty: %s" % path)
+	return bank
 
 
 static func item_token(tokens: Array, item_index: int) -> Dictionary:

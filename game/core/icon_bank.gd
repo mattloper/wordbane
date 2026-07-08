@@ -20,12 +20,7 @@ const ICONS_PATH := "res://data/icons.json"
 static var MAP: Dictionary = _load_map()
 
 static func _load_map() -> Dictionary:
-	if FileAccess.file_exists(ICONS_PATH):
-		var f := FileAccess.open(ICONS_PATH, FileAccess.READ)
-		var parsed: Variant = JSON.parse_string(f.get_as_text())
-		if typeof(parsed) == TYPE_DICTIONARY:
-			return parsed.get("words", {})
-	return {}
+	return JsonFile.load_dict(ICONS_PATH).get("words", {})
 
 
 ## The emoji for a word, or "" if we have none.

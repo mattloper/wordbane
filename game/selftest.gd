@@ -137,8 +137,7 @@ func _initialize() -> void:
 ## Run the language-neutral golden vectors in data/conformance.json. A JS/HTML port
 ## runs the SAME file with an equivalent runner — matching outputs = no drift.
 func _run_conformance(wl: Lexicon, bank: Dictionary) -> void:
-	var f := FileAccess.open("res://data/conformance.json", FileAccess.READ)
-	var c: Dictionary = JSON.parse_string(f.get_as_text())
+	var c := JsonFile.load_dict("res://data/conformance.json")
 	var n := 0
 
 	for t in c["letter_weight"]:

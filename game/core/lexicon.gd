@@ -19,16 +19,12 @@ static var LETTER_WEIGHT: Dictionary = Rules.section("letter_weights")
 
 static func load_from(path: String) -> Lexicon:
 	var lex := Lexicon.new()
-	if FileAccess.file_exists(path):
-		var f := FileAccess.open(path, FileAccess.READ)
-		var parsed: Variant = JSON.parse_string(f.get_as_text())
-		if typeof(parsed) == TYPE_DICTIONARY:
-			var w: Variant = parsed.get("words", [])
-			if w is Array:  # slim format: a plain word list -> build a set for O(1) lookup
-				for word in w:
-					lex.words[word] = true
-			elif w is Dictionary:  # legacy {word: {...}} format
-				lex.words = w
+	var w: Variant = JsonFile.load_dict(path).get("words", [])
+	if w is Array:  # slim format: a plain word list -> build a set for O(1) lookup
+		for word in w:
+			lex.words[word] = true
+	elif w is Dictionary:  # legacy {word: {...}} format
+		lex.words = w
 	if lex.words.is_empty():
 		push_error("dictionary not found/empty: %s" % path)
 	return lex

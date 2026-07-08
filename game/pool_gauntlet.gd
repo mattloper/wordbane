@@ -161,11 +161,17 @@ func _show_placeholder() -> void:
 
 
 ## Request the enemy portrait — the monster drawn WITH its weapons, from a noun
-## phrase (no adjectives, so it caches per creature+weapons). Applied only if it's
-## still the shown enemy.
+## phrase (no adjectives, so it caches per creature+weapons).
 func _request_portrait() -> void:
+	_show_art("portrait", _portrait_subject(_battle.enemy))
+
+
+## Fetch a piece of art and show it in the portrait slot once it arrives — but only
+## if it's still the current enemy (the generation token guards against a late
+## callback landing on the next one).
+func _show_art(kind: String, subject: String) -> void:
 	var gen := _portrait_gen
-	_art.request("portrait", _portrait_subject(_battle.enemy), _style, _model, func(tex):
+	_art.request(kind, subject, _style, _model, func(tex):
 		if gen == _portrait_gen:
 			_portrait_tex.texture = tex
 			_portrait_tex.visible = true
@@ -184,15 +190,9 @@ func _portrait_subject(enemy: Dictionary) -> String:
 
 
 ## On victory: swap the monster for the defeated creature's tombstone (prefetched,
-## so it's usually instant). Guarded by the generation token so it doesn't linger
-## onto the next enemy if you pick a boon before it arrives.
+## so it's usually instant).
 func _show_tombstone(creature: String) -> void:
-	var gen := _portrait_gen
-	_art.request("tombstone", creature, _style, _model, func(tex):
-		if gen == _portrait_gen:
-			_portrait_tex.texture = tex
-			_portrait_tex.visible = true
-			_portrait.visible = false)
+	_show_art("tombstone", creature)
 
 
 ## Generate the next chapter's enemy now and warm its monster + weapon art in the
