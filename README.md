@@ -59,13 +59,12 @@ docs/           how it all works, for developers
 
 (`wordlist_generator/` and `ai_art_server/` are optional extras — see the docs.)
 
-The monster art is real AI art, generated with a local tool and **baked into
-`shared_data/art/`**, so it ships with the game — no setup needed to see it. If you
-want to regenerate it or add your own art "skin," that's what `ai_art_server/` is
-for (see the [docs](docs/ARCHITECTURE.md)).
+The monster art is AI-generated and **baked into `shared_data/art/`**, so it ships
+with the game — nothing to install to see it. To regenerate it or add your own art
+"skin," see `ai_art_server/` and the [docs](docs/ARCHITECTURE.md).
 
-<sub>There's also a fancier **Godot** build (same game, draws each monster live) on
-the [`godot`](../../tree/godot) branch — needs a Mac set up for it.</sub>
+<sub>There's also a **Godot** build (same game, draws each monster live) on the
+[`godot`](../../tree/godot) branch — needs a Mac set up for it.</sub>
 
 ## License
 
