@@ -69,4 +69,4 @@ the [`godot`](../../tree/godot) branch — needs a Mac set up for it.</sub>
 
 ## License
 
-TBD.
+[MIT](LICENSE) — do what you like with it.
