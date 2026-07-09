@@ -1,4 +1,4 @@
-# Wordplay
+# Wordbane
 
 A tiny **word battle** game. Each enemy is a bunch of **letters**; you beat it by
 typing real words made from those letters. Bigger, rarer words hit harder.
@@ -20,8 +20,6 @@ python3 serve.py
 ```
 
 Then open **<http://localhost:8000/web_version/>** and hit **Play**.
-
-*(When it's put online it'll just be a link — nothing to run.)*
 
 ## How to play
 
