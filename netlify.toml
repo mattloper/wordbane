@@ -1,0 +1,17 @@
+# Netlify config: serve the repo as a static site.
+#
+# The browser game is at /web_version/index.html and loads data from
+# ../shared_data/, so the publish directory has to be the repo root
+# (not web_version/) for those relative paths to resolve.
+
+[build]
+  publish = "."
+  command = ""
+
+# Land visitors on the game. A redirect (not a 200 rewrite) is required so
+# the browser's URL becomes /web_version/ — the page's relative asset paths
+# (./src/game.js, ../shared_data/*.json) resolve against that URL.
+[[redirects]]
+  from = "/"
+  to = "/web_version/"
+  status = 302
