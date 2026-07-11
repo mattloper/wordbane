@@ -4,6 +4,6 @@
   "type": "module",
   "description": "Browser version of Wordplay — the shared, hackable build. Reads the same JSON data + conformance fixtures as the Godot game.",
   "scripts": {
-    "test": "node test/conformance.js"
+    "test": "node test/conformance.js && node test/lexicon.js"
   }
 }
