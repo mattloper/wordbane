@@ -1,6 +1,7 @@
 // The word dictionary + the letter-rarity scoring. Mirrors godot_version/core/lexicon.gd.
 // Pure functions on data; no UI.
 import { section } from './rules.js';
+import pluralize from './vendor/pluralize.js';
 
 export function letterWeight(ch) {
   const w = section('letter_weights')[ch];
@@ -57,6 +58,14 @@ export function upperLetters(letters) {
   return letters.map((c) => c.toUpperCase());
 }
 
+// A word's canonical identity for the no-reuse rule: its singular form. So
+// 'quality' and 'qualities' (or 'wolf'/'wolves', 'mouse'/'mice') count as the
+// same word within a run — you can't spend both.
+export function wordKey(w) {
+  const word = w.trim().toLowerCase();
+  return pluralize.singular(word) || word;
+}
+
 // The word dictionary — a Set of real words (membership is all the game needs).
 export class Lexicon {
   // Accepts the slim word list (array) or a legacy {word: ...} object.
@@ -64,8 +73,15 @@ export class Lexicon {
     this.words = new Set(Array.isArray(words) ? words : Object.keys(words));
   }
 
+  // WordNet's lemma list only carries base forms, so a typed plural like
+  // 'qualities' or 'wolves' misses. We accept the word if it's in the set, or
+  // if its singular (via the pluralize library — handles irregulars like
+  // mice/geese/children and uncountables like sheep) is.
   isWord(w) {
-    return this.words.has(w.toLowerCase());
+    const word = w.toLowerCase();
+    if (this.words.has(word)) return true;
+    const singular = pluralize.singular(word);
+    return singular !== word && this.words.has(singular);
   }
 
   // Highest-damage fresh word for a set of letters (Hint), ties -> shorter word.
@@ -74,7 +90,8 @@ export class Lexicon {
     let best = '';
     let bestDmg = 0;
     for (const w of this.words) {
-      if (usedSet.has(w) || !sharesLetter(w, letters)) continue;
+      // sharesLetter first so we only pay for wordKey on real candidates.
+      if (!sharesLetter(w, letters) || usedSet.has(wordKey(w))) continue;
       const d = overlapDamage(w, letters);
       if (d > bestDmg || (d === bestDmg && best !== '' && w.length < best.length)) {
         bestDmg = d;
@@ -88,7 +105,7 @@ export class Lexicon {
   validate(typed, letters, used) {
     const w = typed.trim().toLowerCase();
     if (w === '') return { ok: false, reason: 'type a word' };
-    if (used.includes(w)) return { ok: false, reason: `'${w}' already used this run` };
+    if (used.includes(wordKey(w))) return { ok: false, reason: `'${w}' already used this run` };
     if (!this.isWord(w)) return { ok: false, reason: `'${w}' isn't in the dictionary` };
     if (!sharesLetter(w, letters)) return { ok: false, reason: `'${w}' uses none of its letters` };
     return { ok: true, reason: '', dealt: overlapDamage(w, letters) };
