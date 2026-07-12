@@ -91,6 +91,12 @@
 
     /* you */
     #log { min-height: 84px; font-size: 13px; color: #ccd; white-space: pre-line; }
+    #spent { background: transparent; border: none; color: var(--muted); font-size: 13px;
+      padding: 0; cursor: pointer; text-decoration: underline dotted; white-space: nowrap; }
+    #spent:hover { color: var(--text); }
+    #used-list { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center;
+      max-height: 50vh; overflow-y: auto; margin-top: 14px; }
+    #used-list .word { background: var(--tile); border-radius: 6px; padding: 3px 10px; font-size: 15px; }
 
     /* overlays */
     .overlay { position: fixed; inset: 0; background: #000000a8; display: none;
@@ -159,7 +165,7 @@
       <div class="row" style="margin-top:6px">
         <div id="you-hplabel" style="font-size:18px"></div>
         <div class="hpbar"><i id="you-hpfill" style="width:100%"></i></div>
-        <div id="spent" class="muted" style="font-size:13px"></div>
+        <button id="spent" title="See the words you’ve already used"></button>
       </div>
     </div>
 
@@ -201,6 +207,16 @@
       <h1 style="color:var(--select);font-size:26px">How to play</h1>
       <div id="rules-body"></div>
       <div class="menu"><button id="rules-close" class="primary">Got it</button></div>
+    </div>
+  </div>
+
+  <!-- Words spent -->
+  <div id="used-panel" class="overlay">
+    <div class="card">
+      <h1 style="color:var(--select);font-size:26px">Words spent</h1>
+      <p class="muted" style="font-size:13px;margin:4px 0 0">No word can be used twice in a run.</p>
+      <div id="used-list"></div>
+      <div class="menu"><button id="used-close" class="primary">Done</button></div>
     </div>
   </div>
 

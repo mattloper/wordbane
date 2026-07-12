@@ -282,6 +282,16 @@ function updateActionLine() {
   }
 }
 
+// The "words spent" counter opens this: every word used so far this run, in order.
+function showUsedWords() {
+  const list = $('used-list');
+  const used = S.used || [];
+  list.innerHTML = used.length
+    ? used.map((w) => `<span class="word">${escapeHtml(w)}</span>`).join('')
+    : '<span class="muted">None yet — every word is still fresh.</span>';
+  $('used-panel').classList.add('show');
+}
+
 function highlightTiles(covered) {
   const used = new Set(covered);
   for (const ch in S.tileEls) S.tileEls[ch].classList.toggle('used', used.has(ch));
@@ -334,6 +344,8 @@ function wireUI() {
   $('strike').onclick = onStrike;
   $('hint').onclick = onHint;
   $('newrun').onclick = startRun;
+  $('spent').onclick = showUsedWords;
+  $('used-close').onclick = () => $('used-panel').classList.remove('show');
   $('entry').addEventListener('input', updateActionLine);
   $('entry').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') onStrike();
