@@ -84,10 +84,10 @@ export class PoolBattle {
   // Validate a move without applying it (also the live preview).
   check(word) {
     const w = word.trim().toLowerCase();
-    // Ban the enemy's weapon words — and their plurals: 'knives' still echoes
-    // 'knife', so match on the singular identity (wordKey), not the literal.
-    const key = Lex.wordKey(w);
-    const weapon = this.weapons().find((wp) => Lex.wordKey(wp) === key);
+    // Ban the enemy's weapon words — and their other forms: 'knives' still
+    // echoes 'knife', so match on word identity (lemma ids / singular
+    // fallback), not the literal.
+    const weapon = this.weapons().find((wp) => this.lexicon.sameWord(w, wp));
     if (weapon !== undefined) {
       const reason = weapon === w
         ? `'${w}' is the enemy's own weapon — use a different word`
@@ -110,7 +110,7 @@ export class PoolBattle {
     const w = word.trim().toLowerCase();
     const dealt = r.dealt | 0;
     const covered = Lex.coveredLetters(w, lettersStr);
-    this.used.push(Lex.wordKey(w)); // store the singular so plurals can't be re-spent
+    this.used.push(w); // as typed; validate() blocks other forms via sameWord
     this.enemy.hp = Math.max(0, this.enemyHp() - dealt);
 
     const res = { ok: true, word: w, dealt, covered, hp_left: this.enemyHp(), damage: 0, won: false, lost: false };
