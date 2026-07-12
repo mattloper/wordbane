@@ -91,7 +91,7 @@ export class PoolBattle {
     if (weapon !== undefined) {
       const reason = weapon === w
         ? `'${w}' is the enemy's own weapon — use a different word`
-        : `'${w}' is just '${weapon}', the enemy's own weapon — use a different word`;
+        : `'${w}' is too much like '${weapon}', the enemy's own weapon — use a different word`;
       return { ok: false, reason };
     }
     const lettersStr = this.letters().join('');

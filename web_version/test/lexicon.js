@@ -70,13 +70,22 @@ function fresh() {
   const b = fresh();
   check(b.tryMove('quality').ok, 'first: quality is accepted');
   const r = b.tryMove('qualities');
-  check(!r.ok && /already used/.test(r.reason), 'then: qualities blocked as already used');
+  check(!r.ok && r.reason === "'qualities' is too much like 'quality', which you already used — try a new word",
+    'then: qualities blocked, message names quality');
 }
 {
   const b = fresh(); // reverse order: plural first, singular blocked
   check(b.tryMove('qualities').ok, 'first: qualities is accepted');
   const r = b.tryMove('quality');
-  check(!r.ok && /already used/.test(r.reason), 'then: quality blocked as already used');
+  check(!r.ok && r.reason === "'quality' is too much like 'qualities', which you already used — try a new word",
+    'then: quality blocked, message names qualities');
+}
+{
+  const b = fresh(); // exact repeat gets the plain "already used" message
+  b.tryMove('quality');
+  const r = b.tryMove('quality');
+  check(!r.ok && r.reason === "you already used 'quality' — try a new word",
+    'exact repeat blocked with the plain message');
 }
 {
   const b = fresh(); // unrelated second word still allowed
@@ -104,7 +113,8 @@ if (lex.lemmas) {
   b.begin({ letters: ['g', 'i', 'n', 'r', 'u'], weapons: [], max_hp: 999, hp: 999, base_bite: 0 }, 30, 30);
   check(b.tryMove('run').ok, 'first: run is accepted');
   const r = b.tryMove('running');
-  check(!r.ok && /already used/.test(r.reason), 'then: running blocked as already used');
+  check(!r.ok && r.reason === "'running' is too much like 'run', which you already used — try a new word",
+    'then: running blocked, message names run');
   check(b.tryMove('ring').ok, 'a different word is still allowed');
 }
 
@@ -126,8 +136,8 @@ function armed() {
 {
   const b = armed();
   const plural = b.tryMove('knives');
-  check(!plural.ok && plural.reason === "'knives' is just 'knife', the enemy's own weapon — use a different word",
-    'weapon plural banned with the it-is-just message');
+  check(!plural.ok && plural.reason === "'knives' is too much like 'knife', the enemy's own weapon — use a different word",
+    'weapon plural banned with the too-much-like message');
 }
 {
   const b = armed(); // a non-weapon word from the same pool is fine

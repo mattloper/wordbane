@@ -138,7 +138,13 @@ export class Lexicon {
   validate(typed, letters, used) {
     const w = typed.trim().toLowerCase();
     if (w === '') return { ok: false, reason: 'type a word' };
-    if (used.some((u) => this.sameWord(u, w))) return { ok: false, reason: `'${w}' already used this run` };
+    // Name the earlier word so the message makes sense to a kid: a plain
+    // "already used" is confusing when they typed 'ran' but spent 'running'.
+    const dup = used.find((u) => this.sameWord(u, w));
+    if (dup === w) return { ok: false, reason: `you already used '${w}' — try a new word` };
+    if (dup !== undefined) {
+      return { ok: false, reason: `'${w}' is too much like '${dup}', which you already used — try a new word` };
+    }
     if (!this.isWord(w)) return { ok: false, reason: `'${w}' isn't in the dictionary` };
     if (!sharesLetter(w, letters)) return { ok: false, reason: `'${w}' uses none of its letters` };
     return { ok: true, reason: '', dealt: overlapDamage(w, letters) };
