@@ -1,0 +1,22 @@
+[project]
+name = "wordbane-emoji"
+version = "0.1.0"
+description = "Offline word -> emoji mapper for Wordbane. Embeds the dictionary and the emoji vocab with a pinned sentence-transformer and ships a static lookup the game reads at runtime."
+readme = "README.md"
+requires-python = ">=3.10"
+# sentence-transformers: the text<->text embedder (all-MiniLM-L6-v2, pinned in build.py).
+# numpy: cosine / argmax over the embedding matrices.
+# emoji: source for the checked-in emoji_vocab.json (names + keywords). Only needed to
+#        regenerate the vocab, not for the main build.
+dependencies = [
+    "sentence-transformers>=3.0,<4",
+    "numpy>=1.26",
+    "emoji>=2.12",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["wordbane_emoji"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

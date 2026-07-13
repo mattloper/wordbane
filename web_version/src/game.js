@@ -8,7 +8,7 @@ import { Gauntlet } from './gauntlet.js';
 import { PoolBattle } from './poolbattle.js';
 import * as Boons from './boons.js';
 import { Rng } from './rng.js';
-import { setIcons, creatureIcon, boonIcon, tombstone } from './icons.js';
+import { setIcons, setGeneratedIcons, bonkIcon, creatureIcon, boonIcon, tombstone } from './icons.js';
 import * as WB from './wordbank.js';
 
 const DATA = '../shared_data/'; // served from the repo root (e.g. GitHub Pages / http.server)
@@ -57,15 +57,18 @@ const S = {}; // run state
 // --- boot --------------------------------------------------------------------
 
 async function boot() {
-  const [rules, bank, dict, icons, styles] = await Promise.all([
+  const [rules, bank, dict, icons, styles, wordEmoji] = await Promise.all([
     fetch(DATA + 'rules.json').then((r) => r.json()),
     fetch(DATA + 'word_bank.json').then((r) => r.json()),
     fetch(DATA + 'dictionary.json').then((r) => r.json()),
     fetch(DATA + 'icons.json').then((r) => r.json()),
     fetch(DATA + 'styles.json').then((r) => r.json()),
+    // Optional generated map — regenerate with emoji_mapper/. Absent = generic bonk.
+    fetch(DATA + 'word_emoji.json').then((r) => r.json()).catch(() => ({ words: {} })),
   ]);
   setRules(rules);
   setIcons(icons);
+  setGeneratedIcons(wordEmoji);
   STYLES = styles.styles.map((s) => [s.key, s.label]);
   if (!localStorage.getItem('wordplay.style')) artStyle = styles.default;
   lexicon = new Lexicon(dict.words);
@@ -120,6 +123,7 @@ function onStrike() {
     return;
   }
   $('entry').value = '';
+  bonkEnemy(res.word); // fling the word's emoji at the enemy
   const gain = res.dealt * num('gauntlet', 'score_per_damage', 3); // dealt already boosted
   S.score += gain;
   const uses = res.covered.length ? `  [uses ${upperLetters(res.covered).join(', ')}]` : '';
@@ -293,11 +297,48 @@ function setDmg(n) {
 function setHp(who, hp, max) {
   $(`${who}-hpfill`).style.width = `${max > 0 ? Math.max(0, (hp / max) * 100) : 0}%`;
 }
-function lungePortrait() {
+// Briefly transform the enemy portrait (whichever of emoji/img is showing), then reset.
+function nudgePortrait(transform, { delay = 0, hold = 130 } = {}) {
   for (const p of [$('portrait'), $('portrait-img')]) {
-    p.style.transform = 'translateX(14px) scale(1.25)';
-    setTimeout(() => (p.style.transform = ''), 130);
+    setTimeout(() => {
+      p.style.transform = transform;
+      setTimeout(() => (p.style.transform = ''), hold);
+    }, delay);
   }
+}
+function lungePortrait() {
+  nudgePortrait('translateX(14px) scale(1.25)');
+}
+const BONK_MS = 1300; // total flight time
+const BONK_IMPACT = 0.26; // offset at which the emoji strikes — recoil derives from this
+const GRAVITY = 'cubic-bezier(.5,0,.9,.45)'; // accelerating fall after the hit
+// Fling the played word's emoji in from the left to "bonk" the enemy, then recoil it.
+// bonkIcon() layers hand-curated icons over the generated map, with a '💥' fallback.
+function bonkEnemy(word) {
+  const fx = document.createElement('div');
+  fx.className = 'bonk';
+  fx.textContent = bonkIcon(word);
+  $('portrait-holder').appendChild(fx);
+  fx.animate(
+    [
+      // fly in from upper-left...
+      { offset: 0, transform: 'translate(-105px,-60px) scale(.4) rotate(-30deg)', opacity: 0,
+        easing: 'cubic-bezier(.2,.7,.3,1)' },
+      // ...smack the enemy's left flank (stays off-center, projectile-sized)...
+      { offset: BONK_IMPACT, transform: 'translate(-42px,-6px) scale(1.05) rotate(8deg)', opacity: 1,
+        easing: 'ease-out' },
+      // ...little pop up, then gravity takes over...
+      { offset: 0.4, transform: 'translate(-38px,-22px) scale(.95) rotate(-4deg)', opacity: 1,
+        easing: GRAVITY },
+      { offset: 0.72, transform: 'translate(-26px,46px) scale(.8) rotate(20deg)', opacity: 1,
+        easing: GRAVITY },
+      // ...and tumbles off the bottom, fading as it falls.
+      { offset: 1, transform: 'translate(-14px,160px) scale(.6) rotate(44deg)', opacity: 0 },
+    ],
+    { duration: BONK_MS },
+  ).onfinish = () => fx.remove();
+  // recoil fires when the emoji lands — kept in lockstep with the impact keyframe.
+  nudgePortrait('translateX(11px) rotate(5deg)', { delay: BONK_MS * BONK_IMPACT, hold: 120 });
 }
 function logMsg(text) {
   S.log.push(text);

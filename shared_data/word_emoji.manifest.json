@@ -1,0 +1,13 @@
+{
+  "coverage": 0.5308,
+  "dictionary_sha256_16": "6cebde41c1924cbb",
+  "embedding_dim": 384,
+  "emoji_count": 1888,
+  "emoji_vocab_sha256_16": "8e426ae4486649a1",
+  "mapped_count": 26728,
+  "model_id": "sentence-transformers/all-MiniLM-L6-v2",
+  "revision": "c9745ed1d9f207416be6d2e6f8de32d1f16199bf",
+  "template": "{word}",
+  "threshold": 0.42,
+  "word_count": 50353
+}
