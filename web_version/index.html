@@ -95,8 +95,19 @@
     /* you */
     #log { min-height: 84px; font-size: 13px; color: #ccd; white-space: pre-line; }
 
-    /* overlays */
-    .overlay { position: fixed; inset: 0; background: #000000a8; display: none;
+    /* On phones the on-screen keyboard leaves little height, so pin the enemy panel to
+       the top: the portrait (and its bonk animation) stays in view while you type below.
+       Shrink it a touch so the letters and the input still fit alongside it. */
+    @media (max-width: 640px) {
+      #app { padding: 12px; }
+      .panel { padding: 11px; margin-bottom: 9px; }
+      #enemy-panel { position: sticky; top: 0; z-index: 2; }
+      #portrait-holder { width: 104px; height: 104px; }
+      #portrait { font-size: 78px; }
+    }
+
+    /* overlays (z-index sits above the sticky enemy panel so menus/dialogs cover it) */
+    .overlay { position: fixed; inset: 0; z-index: 100; background: #000000a8; display: none;
       align-items: center; justify-content: center; padding: 20px; }
     .overlay.show { display: flex; }
     .card { background: var(--panel); border-radius: 12px; padding: 28px; max-width: 460px;
@@ -129,7 +140,7 @@
       </div>
     </header>
 
-    <div class="panel">
+    <div class="panel" id="enemy-panel">
       <div id="enemy-head"></div>
       <div id="enemy-row">
         <div id="portrait-holder">
