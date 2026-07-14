@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, interactive-widget=resizes-content" />
   <title>Wordbane</title>
   <style>
     :root {
@@ -26,6 +26,7 @@
     }
     button:hover { filter: brightness(1.12); }
     button.primary { background: var(--select); color: #1c1c26; border: none; font-weight: 600; }
+    button:disabled { opacity: .55; cursor: default; filter: none; }
     button.ghost { background: transparent; }
 
     /* header */
@@ -92,18 +93,67 @@
     .boon .label { font-weight: 600; }
     .boon .desc { font-size: 12px; color: var(--muted); }
 
+    /* in-page keyboard — only shown on touch devices (JS adds body.touch), so the native
+       on-screen keyboard never opens. On desktop this stays hidden and the physical
+       keyboard drives the same input. */
+    #kb { display: none; flex-direction: column; gap: 6px; margin-top: 8px; }
+    body.touch #kb { display: flex; }
+    #strike-touch { display: none; } /* the big touch-only Strike button (see mobile block) */
+    body.touch #strike-touch { display: block; }
+    body.touch #strike { display: none; } /* replaced by #strike-touch on touch */
+    .kb-row { display: flex; gap: 5px; justify-content: center; }
+    .key { flex: 1 1 0; min-width: 0; height: 46px; padding: 0; font: inherit; font-size: 18px;
+      font-weight: 600; color: var(--text); background: #3d4050; border: 1px solid #4a4d60;
+      border-radius: 6px; user-select: none; touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent; }
+    .key.key-wide { flex: 1.5 1 0; font-size: 16px; }
+    .key:active { background: var(--select); color: #1c1c26; border-color: var(--select); }
+
     /* you */
     #log { min-height: 84px; font-size: 13px; color: #ccd; white-space: pre-line; }
 
-    /* On phones the on-screen keyboard leaves little height, so pin the enemy panel to
-       the top: the portrait (and its bonk animation) stays in view while you type below.
-       Shrink it a touch so the letters and the input still fit alongside it. */
+    /* Phone layout — a different experience from the desktop one. The on-screen keyboard
+       covers the bottom of the screen, and iOS Safari doesn't shrink the page when it
+       opens (only the *visible* area shrinks). So JS tracks window.visualViewport and
+       sets --vvh / --vvt; we size the whole play screen to that visible box and lay it
+       out as a fixed column: enemy + your HP at the top, the input pinned to the bottom
+       right above the keyboard, nothing to scroll past. */
     @media (max-width: 640px) {
-      #app { padding: 12px; }
-      .panel { padding: 11px; margin-bottom: 9px; }
-      #enemy-panel { position: sticky; top: 0; z-index: 2; }
-      #portrait-holder { width: 104px; height: 104px; }
-      #portrait { font-size: 78px; }
+      html, body { height: 100%; overflow: hidden; }
+      #app {
+        position: fixed; top: var(--vvt, 0px); left: 0; right: 0;
+        height: var(--vvh, 100dvh);
+        max-width: none; margin: 0; padding: 8px 10px;
+        display: flex; flex-direction: column; overflow: hidden;
+      }
+      #app > * { flex: 0 0 auto; } /* fixed-height rows; spacing comes from margins */
+      header { margin-bottom: 6px; }
+      #chapter { font-size: 20px; }
+      .panel { padding: 9px; margin-bottom: 7px; }
+
+      #enemy-panel { order: 1; }
+      #portrait-holder { width: 78px; height: 78px; }
+      #portrait { font-size: 58px; }
+      .bonk { font-size: 42px; }
+      /* the small portrait leaves no room for a corner badge — sit it under the monster */
+      #atk-badge { top: calc(100% + 4px); left: 50%; bottom: auto; transform: translateX(-50%);
+        font-size: 15px; padding: 1px 7px; white-space: nowrap; }
+      #sentence { font-size: 15px; margin-bottom: 5px; line-height: 1.35; }
+      #letters { margin-top: 7px; gap: 5px; }
+
+      #you-panel { order: 2; margin-top: 0; }
+      #boons { order: 3; margin-top: 10px; }
+      /* big Strike fills the gap under your HP; margin-top:auto pushes it (and the input
+         group below it) down toward the thumb */
+      #strike-touch { order: 4; width: 100%; height: 58px; font-size: 20px; margin: auto 0 8px; }
+      #action-line { order: 5; margin: 0 0 6px; min-height: 0; }
+      #controls { order: 6; }
+      #kb { order: 7; margin-top: 8px; }
+      /* not worth the vertical space on a phone */
+      #log-panel, #newrun-wrap { display: none; }
+
+      /* long dialogs (How to play) can scroll instead of clipping */
+      .overlay { align-items: flex-start; overflow-y: auto; }
     }
 
     /* overlays (z-index sits above the sticky enemy panel so menus/dialogs cover it) */
@@ -166,9 +216,11 @@
       <button id="strike" class="primary">Strike</button>
       <button id="hint" class="hidden">Hint</button>
     </div>
+    <button id="strike-touch" class="primary">Strike!</button>
     <div id="boons"></div>
+    <div id="kb" aria-hidden="true"></div>
 
-    <div class="panel" style="margin-top:12px">
+    <div class="panel" id="you-panel" style="margin-top:12px">
       <div class="muted" style="font-size:13px">YOU</div>
       <div class="row" style="margin-top:6px">
         <div id="you-hplabel" style="font-size:18px"></div>
@@ -177,19 +229,19 @@
       </div>
     </div>
 
-    <div class="panel"><div id="log"></div></div>
-    <div style="text-align:center"><button id="newrun" class="ghost">New Run</button></div>
+    <div class="panel" id="log-panel"><div id="log"></div></div>
+    <div id="newrun-wrap" style="text-align:center"><button id="newrun" class="ghost">New Run</button></div>
   </div>
 
-  <!-- Title screen -->
-  <div id="title" class="overlay">
+  <!-- Title screen — shown by default so it paints instantly, before data loads -->
+  <div id="title" class="overlay show">
     <div id="title-card" class="card">
       <img id="title-logo" class="hidden" alt="Wordbane" />
       <h1 id="title-text">WORDBANE</h1>
       <p class="muted">a letter-pool word battler</p>
       <p id="best" class="muted"></p>
       <div class="menu">
-        <button id="play" class="primary">Play</button>
+        <button id="play" class="primary" disabled>Loading…</button>
         <button id="howto" class="ghost">How to play</button>
         <button id="options" class="ghost">Options</button>
       </div>

@@ -56,19 +56,77 @@ const S = {}; // run state
 
 // --- boot --------------------------------------------------------------------
 
+// Phones: mirror the *visible* viewport (which shrinks when the keyboard opens, while
+// the page itself does not on iOS) into CSS vars so the play screen can size to it and
+// keep the input above the keyboard. A no-op on browsers without visualViewport.
+function trackViewport() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  const apply = () => {
+    const s = document.documentElement.style;
+    s.setProperty('--vvh', `${vv.height}px`);
+    s.setProperty('--vvt', `${vv.offsetTop}px`);
+  };
+  vv.addEventListener('resize', apply);
+  vv.addEventListener('scroll', apply);
+  apply();
+}
+
+// Touch devices get an in-page keyboard instead of the native one: the OS keyboard can't
+// be resized and its open/close churns the layout, so on a coarse pointer we suppress it
+// (readonly input) and drive the same #entry field from our own keys.
+const KB_ROWS = [
+  ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
+  ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
+  ['z', 'x', 'c', 'v', 'b', 'n', 'm', 'back'],
+];
+function onKey(e) {
+  const btn = e.target.closest('button.key');
+  if (!btn) return;
+  e.preventDefault(); // keep focus/scroll/zoom out of it, and respond on press
+  const k = btn.dataset.k;
+  const inp = $('entry');
+  inp.value = k === 'back' ? inp.value.slice(0, -1) : inp.value + k;
+  inp.dispatchEvent(new Event('input')); // refresh the damage preview
+}
+function setupTouchInput() {
+  if (!window.matchMedia || !matchMedia('(pointer: coarse)').matches) return;
+  document.body.classList.add('touch');
+  const inp = $('entry');
+  inp.readOnly = true; // guarantees the native keyboard never opens
+  inp.setAttribute('inputmode', 'none');
+  const kb = $('kb');
+  for (const row of KB_ROWS) {
+    const r = document.createElement('div');
+    r.className = 'kb-row';
+    for (const k of row) {
+      const b = document.createElement('button');
+      b.className = k === 'back' ? 'key key-wide' : 'key';
+      b.dataset.k = k;
+      b.textContent = k === 'back' ? '⌫' : k;
+      r.appendChild(b);
+    }
+    kb.appendChild(r);
+  }
+  kb.addEventListener('pointerdown', onKey);
+}
+
 async function boot() {
-  const [rules, bank, dict, icons, styles, wordEmoji] = await Promise.all([
+  trackViewport();
+  setupTouchInput();
+  // The generated emoji map is big and only needed once you play a word, so load it in
+  // the background — it must not delay the title or the Play button. Absent = generic bonk.
+  fetch(DATA + 'word_emoji.json').then((r) => r.json()).then(setGeneratedIcons).catch(() => {});
+
+  const [rules, bank, dict, icons, styles] = await Promise.all([
     fetch(DATA + 'rules.json').then((r) => r.json()),
     fetch(DATA + 'word_bank.json').then((r) => r.json()),
     fetch(DATA + 'dictionary.json').then((r) => r.json()),
     fetch(DATA + 'icons.json').then((r) => r.json()),
     fetch(DATA + 'styles.json').then((r) => r.json()),
-    // Optional generated map — regenerate with emoji_mapper/. Absent = generic bonk.
-    fetch(DATA + 'word_emoji.json').then((r) => r.json()).catch(() => ({ words: {} })),
   ]);
   setRules(rules);
   setIcons(icons);
-  setGeneratedIcons(wordEmoji);
   STYLES = styles.styles.map((s) => [s.key, s.label]);
   if (!localStorage.getItem('wordplay.style')) artStyle = styles.default;
   lexicon = new Lexicon(dict.words);
@@ -78,7 +136,9 @@ async function boot() {
   showBest();
   updateTitleLogo();
   $('rules-body').textContent = RULES_TEXT;
-  $('title').classList.add('show');
+  const play = $('play'); // title's already up; now that data's ready, let them start
+  play.disabled = false;
+  play.textContent = 'Play';
 }
 
 // --- run / battle flow -------------------------------------------------------
@@ -321,19 +381,20 @@ function bonkEnemy(word) {
   $('portrait-holder').appendChild(fx);
   fx.animate(
     [
-      // fly in from upper-left...
-      { offset: 0, transform: 'translate(-105px,-60px) scale(.4) rotate(-30deg)', opacity: 0,
+      // Offsets are % of the portrait box, so the arc scales with the portrait
+      // (which is smaller on phones) and stays aligned. fly in from upper-left...
+      { offset: 0, transform: 'translate(-70%,-40%) scale(.4) rotate(-30deg)', opacity: 0,
         easing: 'cubic-bezier(.2,.7,.3,1)' },
       // ...smack the enemy's left flank (stays off-center, projectile-sized)...
-      { offset: BONK_IMPACT, transform: 'translate(-42px,-6px) scale(1.05) rotate(8deg)', opacity: 1,
+      { offset: BONK_IMPACT, transform: 'translate(-28%,-4%) scale(1.05) rotate(8deg)', opacity: 1,
         easing: 'ease-out' },
       // ...little pop up, then gravity takes over...
-      { offset: 0.4, transform: 'translate(-38px,-22px) scale(.95) rotate(-4deg)', opacity: 1,
+      { offset: 0.4, transform: 'translate(-25%,-15%) scale(.95) rotate(-4deg)', opacity: 1,
         easing: GRAVITY },
-      { offset: 0.72, transform: 'translate(-26px,46px) scale(.8) rotate(20deg)', opacity: 1,
+      { offset: 0.72, transform: 'translate(-17%,31%) scale(.8) rotate(20deg)', opacity: 1,
         easing: GRAVITY },
       // ...and tumbles off the bottom, fading as it falls.
-      { offset: 1, transform: 'translate(-14px,160px) scale(.6) rotate(44deg)', opacity: 0 },
+      { offset: 1, transform: 'translate(-9%,107%) scale(.6) rotate(44deg)', opacity: 0 },
     ],
     { duration: BONK_MS },
   ).onfinish = () => fx.remove();
@@ -373,6 +434,7 @@ function showBest() {
 
 function wireUI() {
   $('strike').onclick = onStrike;
+  $('strike-touch').onclick = onStrike; // big touch-only button; same handler
   $('hint').onclick = onHint;
   $('newrun').onclick = startRun;
   $('entry').addEventListener('input', updateActionLine);
