@@ -39,6 +39,7 @@ Much of the game is text in `shared_data/`:
 | numbers & rewards | `shared_data/rules.json` | letter values, starting HP, the reward list |
 | monsters & weapons | `shared_data/word_bank.json` | words in the `creature` / `item` pools |
 | a monster's emoji | `shared_data/icons.json` | `"griffin": "🦅"` |
+| the emoji flung when you play a word | `shared_data/icons.json` (overrides win) | `"blade": "🗡️"` |
 
 Edit a file and refresh the page.
 
@@ -54,7 +55,10 @@ shared_data/    the game's content (text + art)
 docs/           how it works
 ```
 
-`wordlist_generator/` and `ai_art_server/` are optional tooling — see the docs.
+`wordlist_generator/`, `ai_art_server/`, and `emoji_mapper/` are optional tooling — see
+the docs. When you play a word the game flings a matching emoji at the enemy;
+`emoji_mapper/` is the offline preprocess that maps every dictionary word to its nearest
+emoji (`shared_data/word_emoji.json`), and your hand-picks in `icons.json` always win.
 
 The monster art is AI-generated and baked into `shared_data/art/`, so it ships with
 the game. To regenerate it or add an art "skin," see `ai_art_server/` and the

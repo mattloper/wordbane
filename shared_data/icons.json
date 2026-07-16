@@ -16,5 +16,5 @@
     "spike": "📌"
   },
   "boons": { "tough": "🛡️", "mend": "🧪", "focus": "🔍", "double": "🪙" },
-  "fallback": { "creature": "👾", "weapon": "⚔️", "tombstone": "🪦" }
+  "fallback": { "creature": "👾", "weapon": "⚔️", "tombstone": "🪦", "bonk": "💥" }
 }
