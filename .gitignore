@@ -14,6 +14,9 @@ __pycache__/
 # --- Generated art cache (portraits/boons/tombstones; regenerated on demand) ---
 .cache/
 
+# --- Cloudflare wrangler (local CLI state) ---
+.wrangler/
+
 # --- OS ---
 .DS_Store
 
