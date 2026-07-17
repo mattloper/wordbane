@@ -137,7 +137,11 @@
       #chapter { font-size: 20px; }
       .panel { padding: 9px; margin-bottom: 7px; }
 
-      #enemy-panel { order: 1; }
+      /* The enemy panel is the one row allowed to shrink: when the letter tiles
+         wrap to a second/third row the panel would otherwise push the input and
+         keyboard off the bottom (everything else is flex:0 0 auto). Letting it
+         shrink and scroll internally keeps the keyboard pinned and reachable. */
+      #enemy-panel { order: 1; flex-shrink: 1; min-height: 0; overflow-y: auto; }
       #portrait-holder { width: 78px; height: 78px; }
       #portrait { font-size: 58px; }
       .bonk { font-size: 42px; }
