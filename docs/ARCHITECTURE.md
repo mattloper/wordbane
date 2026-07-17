@@ -28,7 +28,7 @@ suite**, so they can't quietly drift apart.
 | `rules.json` | tuning: letter weights, HP/score numbers, the boon catalog |
 | `word_bank.json` | enemy vocabulary pools (creatures / items / adjectives) |
 | `icons.json` | word → emoji clipart (art fallback) |
-| `dictionary.json` | the ~50k valid words (a plain sorted list) |
+| `dictionary.json` | the ~50k valid words: each form → its SCOWL lemma ids (forms sharing an id are one word) |
 | `conformance.json` | golden test vectors (see below) |
 | `styles.json` | the art **skins** (key / label / generation prompt) — one source of truth |
 | `art/` | baked skin images the web build shows: `art/<kind>/<style>/<subject>.png` (+ `art/logo/<style>.png`) |
@@ -104,9 +104,15 @@ cd wordlist_generator
 uv venv && uv pip install -e ".[dev]"
 uv run python -m spacy download en_core_web_sm   # one-time
 uv run wordplay-generate      # -> ../shared_data/word_bank.json (curated creatures/items/adjectives)
-uv run wordplay-dictionary    # -> ../shared_data/dictionary.json (WordNet word set, filtered)
+uv run wordplay-dictionary-esdb --db path/to/scowl.db   # -> ../shared_data/dictionary.json (ESDB/SCOWL)
 uv run pytest
 ```
+
+The committed `dictionary.json` is built from ESDB/SCOWL (`wordplay-dictionary-esdb`; needs a
+`scowl.db` built from https://github.com/en-wl/wordlist branch `v2` with `make`). It carries
+inflected forms with lemma ids, so the game accepts 'wolves'/'ran' directly and the no-reuse
+rule collapses forms of one lemma. `wordplay-dictionary` still builds the older WordNet list
+(base forms only, plural handling left to a runtime heuristic) for comparison.
 
 The curated game vocabulary lives in `wordlist_generator/wordplay_tools/lexicon.py`. Editing
 `shared_data/word_bank.json` directly is fine for quick mods, but a regenerate will

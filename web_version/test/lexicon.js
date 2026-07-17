@@ -1,6 +1,8 @@
-// Tests plural-tolerant Lexicon.isWord (dogs/qualities/wolves accepted when
-// only the singular is in the dictionary) and the no-reuse collapse (a run
-// can't spend both 'quality' and 'qualities').
+// Tests plural-tolerant Lexicon.isWord (dogs/qualities/wolves accepted even
+// when only the singular is in the dictionary), the no-reuse collapse (a run
+// can't spend both 'quality' and 'qualities'), and — with the ESDB/SCOWL
+// dictionary (schema v3) — the lemma-id collapse ('run'/'ran'/'running' are
+// one word).
 //
 //   node web_version/test/lexicon.js
 import { readFileSync } from 'node:fs';
@@ -44,7 +46,7 @@ for (const [plural, singular] of [
 check(lex.isWord('Qualities'), 'plural case-insensitive');
 
 // Nonsense still rejected.
-for (const w of ['xyzzys', 'qwerties', 'blarghves', 'zzzz']) {
+for (const w of ['xyzzys', 'wubbles', 'blarghves', 'zzzz']) {
   check(!lex.isWord(w), `nonsense rejected: ${w}`);
 }
 
@@ -68,18 +70,52 @@ function fresh() {
   const b = fresh();
   check(b.tryMove('quality').ok, 'first: quality is accepted');
   const r = b.tryMove('qualities');
-  check(!r.ok && /already used/.test(r.reason), 'then: qualities blocked as already used');
+  check(!r.ok && r.reason === "'qualities' is too much like 'quality', which you already used — try a new word",
+    'then: qualities blocked, message names quality');
 }
 {
   const b = fresh(); // reverse order: plural first, singular blocked
   check(b.tryMove('qualities').ok, 'first: qualities is accepted');
   const r = b.tryMove('quality');
-  check(!r.ok && /already used/.test(r.reason), 'then: quality blocked as already used');
+  check(!r.ok && r.reason === "'quality' is too much like 'qualities', which you already used — try a new word",
+    'then: quality blocked, message names qualities');
+}
+{
+  const b = fresh(); // exact repeat gets the plain "already used" message
+  b.tryMove('quality');
+  const r = b.tryMove('quality');
+  check(!r.ok && r.reason === "you already used 'quality' — try a new word",
+    'exact repeat blocked with the plain message');
 }
 {
   const b = fresh(); // unrelated second word still allowed
   b.tryMove('quality');
   check(b.tryMove('quilt').ok, 'a different word is still allowed');
+}
+
+// --- lemma-id collapse (schema v3, ESDB/SCOWL dictionary) --------------------
+
+// These only apply when the dictionary carries lemma ids. Then inflections are
+// real entries (no fallback guessing) and any two forms of a lemma are one word.
+if (lex.lemmas) {
+  for (const w of ['ran', 'running', 'wolves', 'knives', 'mice']) {
+    check(lex.words.has(w), `inflected form is a real entry: ${w}`);
+  }
+  for (const [a, b] of [['run', 'ran'], ['run', 'running'], ['mouse', 'mice'], ['wolf', 'wolves']]) {
+    check(lex.sameWord(a, b) && lex.sameWord(b, a), `sameWord collapses ${a}/${b}`);
+  }
+  check(!lex.sameWord('quality', 'quilt'), 'unrelated words are not collapsed');
+
+  // Through a battle: spending 'run' bans 'running' (pluralize alone can't
+  // catch verb forms — this is the lemma ids working).
+  const b = new PoolBattle();
+  b.lexicon = lex;
+  b.begin({ letters: ['g', 'i', 'n', 'r', 'u'], weapons: [], max_hp: 999, hp: 999, base_bite: 0 }, 30, 30);
+  check(b.tryMove('run').ok, 'first: run is accepted');
+  const r = b.tryMove('running');
+  check(!r.ok && r.reason === "'running' is too much like 'run', which you already used — try a new word",
+    'then: running blocked, message names run');
+  check(b.tryMove('ring').ok, 'a different word is still allowed');
 }
 
 // --- weapon ban is plural-aware ---------------------------------------------
@@ -100,8 +136,8 @@ function armed() {
 {
   const b = armed();
   const plural = b.tryMove('knives');
-  check(!plural.ok && plural.reason === "'knives' is just 'knife', the enemy's own weapon — use a different word",
-    'weapon plural banned with the it-is-just message');
+  check(!plural.ok && plural.reason === "'knives' is too much like 'knife', the enemy's own weapon — use a different word",
+    'weapon plural banned with the too-much-like message');
 }
 {
   const b = armed(); // a non-weapon word from the same pool is fine
