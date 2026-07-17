@@ -1,0 +1,7 @@
+# Cloudflare Pages / Netlify redirects.
+#
+# The site is served from the repo root (the game at /web_version/ loads data
+# from ../shared_data/), so land visitors on the game. A 302 (not a rewrite)
+# makes the browser URL become /web_version/, so the page's relative asset
+# paths (./src/game.js, ../shared_data/*.json) resolve correctly.
+/  /web_version/  302
