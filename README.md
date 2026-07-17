@@ -11,8 +11,10 @@ It runs in the browser. Most of the game is plain-text files you can edit.
 
 ## Play it
 
-The files have to be served (a browser won't load them straight off disk). From this
-folder:
+**▶ Play online: <https://wordbane.pages.dev>**
+
+To run it locally, the files have to be served (a browser won't load them straight off
+disk). From this folder:
 
 ```bash
 python3 serve.py
@@ -66,6 +68,19 @@ the game. To regenerate it or add an art "skin," see `ai_art_server/` and the
 
 There's also a Godot build (same game, generates art live) on the
 [`godot`](../../tree/godot) branch; it needs a Mac set up for it.
+
+## Hosting
+
+The public site — **<https://wordbane.pages.dev>** — is on **Cloudflare Pages**, connected
+to this repo's `main` branch: every push/merge auto-deploys, and pull requests get their
+own preview URLs. There's no build step; the repo root is served as static files (the game
+at `/web_version/` loads data from `/shared_data/`), and `_redirects` sends `/` to the game.
+
+The repo also carries a `netlify.toml`, so it deploys the same way on **Netlify** — both
+`_redirects` and `netlify.toml` express the same root → `/web_version/` redirect, so
+neither host needs special setup. A contributor working from a fork may run their own
+Netlify/Cloudflare deploy for previews; those are separate from the canonical Cloudflare
+Pages site above.
 
 ## License
 
